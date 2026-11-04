@@ -339,6 +339,82 @@ class WalletService {
     };
   }
 
+  /// Proses Setor Tabungan Impian: memindahkan dana dari Saldo Cash ke Saldo Tabungan
+  /// dan mencatat mutasi ke koleksi `transactions` & `wallets` di Firestore.
+  Future<TransactionModel> depositToSaving({
+    required int amount,
+    required String goalTitle,
+    required String timeFormatted,
+  }) async {
+    if (amount <= 0) {
+      throw Exception('Nominal setoran tabungan harus lebih dari Rp 0.');
+    }
+    if (amount > DummyData.cashBalance) {
+      throw Exception('Saldo FinPay Cash kamu tidak mencukupi!');
+    }
+
+    await updateBalance(cashDelta: -amount, savingDelta: amount);
+
+    final referenceNumber =
+        'FPX-SV${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+    final trx = TransactionModel(
+      userId: FirebaseFirestoreConfig.defaultUserId,
+      title: 'Setor Tabungan: $goalTitle',
+      dateTime: 'Hari Ini, $timeFormatted',
+      channel: 'Tabungan FinPay',
+      amount: -amount,
+      icon: Icons.savings_outlined,
+      type: TransactionType.saving,
+      referenceNumber: referenceNumber,
+      category: 'Tabungan',
+      dateGroup: 'Hari Ini',
+      note: 'Alokasi tabungan impian ($goalTitle)',
+    );
+
+    await TransactionService.instance.addTransaction(trx);
+    return trx;
+  }
+
+  /// Proses Pencairan Pinjaman Instan FinPay Loan ke Saldo Cash
+  /// beserta perhitungan cicilan bulanan (bunga 0.9% / bulan).
+  Future<({TransactionModel transaction, int monthlyInstallment})> disburseLoan({
+    required int amount,
+    required int tenorMonths,
+    required String timeFormatted,
+  }) async {
+    if (amount < 1000000) {
+      throw Exception('Nominal pengajuan pinjaman minimal Rp 1.000.000.');
+    }
+    if (tenorMonths <= 0) {
+      throw Exception('Tenor cicilan tidak valid.');
+    }
+
+    await updateBalance(cashDelta: amount);
+
+    // Bunga flat 0.9% per bulan
+    final totalWithInterest = amount * (1 + (0.009 * tenorMonths));
+    final monthlyInstallment = (totalWithInterest / tenorMonths).round();
+
+    final referenceNumber =
+        'FPX-LN${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+    final trx = TransactionModel(
+      userId: FirebaseFirestoreConfig.defaultUserId,
+      title: 'Pencairan Pinjaman FinPay Loan',
+      dateTime: 'Hari Ini, $timeFormatted',
+      channel: 'FinPay Loan OJK',
+      amount: amount,
+      icon: Icons.account_balance_wallet_outlined,
+      type: TransactionType.income,
+      referenceNumber: referenceNumber,
+      category: 'Pinjaman',
+      dateGroup: 'Hari Ini',
+      note: 'Tenor $tenorMonths bulan • Cicilan Rp $monthlyInstallment/bln',
+    );
+
+    await TransactionService.instance.addTransaction(trx);
+    return (transaction: trx, monthlyInstallment: monthlyInstallment);
+  }
+
   Future<void> _syncWalletToFirestore(WalletModel wallet) async {
     if (!FirebaseFirestoreConfig.isConfigured) return;
 
