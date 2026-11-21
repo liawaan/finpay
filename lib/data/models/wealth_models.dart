@@ -279,3 +279,46 @@ class CashFlowSummaryModel {
 
   int get netSurplus => totalIncome - totalExpense;
 }
+
+/// Model Pos Anggaran Bulanan (Smart Budgeting).
+class BudgetCategoryModel {
+  const BudgetCategoryModel({
+    required this.id,
+    required this.title,
+    required this.monthlyLimit,
+    required this.spentAmount,
+    required this.icon,
+    required this.color,
+  });
+
+  final String id;
+  final String title;
+  final int monthlyLimit;
+  final int spentAmount;
+  final IconData icon;
+  final Color color;
+
+  double get progress =>
+      monthlyLimit <= 0 ? 0.0 : (spentAmount / monthlyLimit).clamp(0.0, 1.0);
+  int get percentage => (progress * 100).round();
+  int get remaining => (monthlyLimit - spentAmount).clamp(0, monthlyLimit);
+  bool get isOverBudget => spentAmount > monthlyLimit;
+
+  BudgetCategoryModel copyWith({
+    String? id,
+    String? title,
+    int? monthlyLimit,
+    int? spentAmount,
+    IconData? icon,
+    Color? color,
+  }) {
+    return BudgetCategoryModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      monthlyLimit: monthlyLimit ?? this.monthlyLimit,
+      spentAmount: spentAmount ?? this.spentAmount,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
+    );
+  }
+}

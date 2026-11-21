@@ -74,50 +74,257 @@ class WealthService {
     ),
   ]);
 
-  /// Daftar voucher promo & status klaimnya.
-  final ValueNotifier<List<PromoModel>> promosNotifier =
-      ValueNotifier<List<PromoModel>>([
-    const PromoModel(
-      id: 'promo_qris_50',
-      title: 'Cashback 50% QRIS Indomaret & Alfamart',
-      description:
-          'Maksimal cashback Rp 10.000 dengan minimal belanja Rp 20.000 di seluruh gerai Indomaret & Alfamart.',
-      code: 'FINQRIS50',
-      category: 'Cashback',
-      validity: 'Berlaku s.d 31 Oktober 2024',
-      discountAmount: 10000,
-      icon: Icons.qr_code_2_rounded,
-      color: AppColors.primary,
+  /// Pos Anggaran Bulanan (Smart Budgeting - Murni Lokal In-Memory State).
+  final ValueNotifier<List<BudgetCategoryModel>> budgetsNotifier =
+      ValueNotifier<List<BudgetCategoryModel>>([
+    const BudgetCategoryModel(
+      id: 'budget_food',
+      title: 'Makanan & Kuliner',
+      monthlyLimit: 2000000,
+      spentAmount: 1350000,
+      icon: Icons.restaurant_rounded,
+      color: Color(0xFF2563EB),
     ),
+    const BudgetCategoryModel(
+      id: 'budget_transport',
+      title: 'Transportasi & Bensin',
+      monthlyLimit: 600000,
+      spentAmount: 450000,
+      icon: Icons.directions_car_rounded,
+      color: Color(0xFF0F766E),
+    ),
+    const BudgetCategoryModel(
+      id: 'budget_bills',
+      title: 'Tagihan & Utilitas',
+      monthlyLimit: 1000000,
+      spentAmount: 850000,
+      icon: Icons.receipt_long_rounded,
+      color: Color(0xFFEAB308),
+    ),
+    const BudgetCategoryModel(
+      id: 'budget_lifestyle',
+      title: 'Belanja & Hiburan',
+      monthlyLimit: 500000,
+      spentAmount: 400000,
+      icon: Icons.shopping_bag_rounded,
+      color: Color(0xFFE11D48),
+    ),
+  ]);
+
+  List<BudgetCategoryModel> get budgets => budgetsNotifier.value;
+
+  /// Memperbarui batas limit anggaran bulanan (murni lokal di memori aplikasi).
+  void updateBudgetLimit(String budgetId, int newLimit) {
+    final list = List<BudgetCategoryModel>.from(budgetsNotifier.value);
+    final index = list.indexWhere((b) => b.id == budgetId);
+    if (index != -1) {
+      list[index] = list[index].copyWith(monthlyLimit: newLimit);
+      budgetsNotifier.value = list;
+    }
+  }
+
+  /// Master list 15 voucher promo FinPay lengkap di semua kategori
+  /// (Diskon Tagihan, Cashback, Investasi).
+  static final List<PromoModel> initialPromos = [
+    // ---------- 1. DISKON TAGIHAN (5 Voucher) ----------
     const PromoModel(
       id: 'promo_pln_15',
       title: 'Diskon Tagihan PLN & PDAM Rp 15.000',
       description:
-          'Potongan langsung Rp 15.000 untuk pembayaran tagihan PLN dan Air PDAM via FinPay.',
+          'Potongan langsung Rp 15.000 untuk pembayaran tagihan listrik PLN dan Air PDAM via FinPay.',
       code: 'HEMATPLN',
       category: 'Diskon Tagihan',
-      validity: 'Berlaku s.d 15 November 2024',
+      validity: 'Berlaku s.d 31 Des 2024',
       discountAmount: 15000,
       icon: Icons.bolt_rounded,
       color: AppColors.gold,
     ),
     const PromoModel(
+      id: 'promo_bpjs_10',
+      title: 'Diskon Iuran BPJS Kesehatan Rp 10.000',
+      description:
+          'Potongan langsung Rp 10.000 bayar tagihan iuran BPJS Kesehatan untuk seluruh anggota keluarga.',
+      code: 'BPJSHEMAT',
+      category: 'Diskon Tagihan',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 10000,
+      icon: Icons.health_and_safety_rounded,
+      color: AppColors.success,
+    ),
+    const PromoModel(
+      id: 'promo_wifi_20',
+      title: 'Potongan Tagihan Internet & TV Rp 20.000',
+      description:
+          'Potongan Rp 20.000 untuk tagihan IndiHome, First Media, MyRepublic, dan Biznet min. Rp 200.000.',
+      code: 'WIFIMURAH',
+      category: 'Diskon Tagihan',
+      validity: 'Berlaku s.d 25 Des 2024',
+      discountAmount: 20000,
+      icon: Icons.wifi_rounded,
+      color: AppColors.primary,
+    ),
+    const PromoModel(
+      id: 'promo_pulsa_10',
+      title: 'Potongan Pulsa & Paket Data Rp 10.000',
+      description:
+          'Diskon langsung untuk isi pulsa atau paket data Telkomsel, Indosat, XL, dan Tri min. Rp 50.000.',
+      code: 'PULSATERUS',
+      category: 'Diskon Tagihan',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 10000,
+      icon: Icons.phone_android_rounded,
+      color: AppColors.gold,
+    ),
+    const PromoModel(
+      id: 'promo_pbb_25',
+      title: 'Diskon Pajak PBB & Retribusi Daerah Rp 25.000',
+      description:
+          'Cashback potongan pembayaran Pajak Bumi dan Bangunan (PBB) dan e-Samsat kendaraan bermotor.',
+      code: 'PAJAKHEBAT',
+      category: 'Diskon Tagihan',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 25000,
+      icon: Icons.account_balance_rounded,
+      color: Color(0xFF0F766E),
+    ),
+
+    // ---------- 2. CASHBACK (5 Voucher) ----------
+    const PromoModel(
+      id: 'promo_qris_50',
+      title: 'Cashback 50% QRIS Merchant Pilihan',
+      description:
+          'Maksimal cashback Rp 10.000 dengan minimal belanja Rp 20.000 di seluruh gerai Indomaret, Alfamart & FnB.',
+      code: 'FINQRIS50',
+      category: 'Cashback',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 10000,
+      icon: Icons.qr_code_2_rounded,
+      color: AppColors.primary,
+    ),
+    const PromoModel(
+      id: 'promo_fnb_30',
+      title: 'Cashback 30% Jajan Kopi & Kuliner Favorit',
+      description:
+          'Maksimal cashback Rp 15.000 di Kopi Kenangan, Janji Jiwa, Fore Coffee, dan merchant kuliner FinPay.',
+      code: 'KOPIHEMAT',
+      category: 'Cashback',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 15000,
+      icon: Icons.coffee_rounded,
+      color: AppColors.gold,
+    ),
+    const PromoModel(
+      id: 'promo_transfer_free',
+      title: 'Bebas Biaya Transfer Bank 10x',
+      description:
+          'Transfer gratis tanpa biaya admin ke seluruh bank di Indonesia (BCA, Mandiri, BRI, BNI).',
+      code: 'FREETRF10',
+      category: 'Cashback',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 25000,
+      icon: Icons.swap_horiz_rounded,
+      color: AppColors.mint,
+    ),
+    const PromoModel(
+      id: 'promo_spbu_15',
+      title: 'Cashback 15% Isi Bensin SPBU Pertamina & Shell',
+      description:
+          'Cashback s.d Rp 15.000 untuk pengisian BBM Pertalite, Pertamax, dan Shell V-Power pakai FinPay QRIS.',
+      code: 'BENSINHEMAT',
+      category: 'Cashback',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 15000,
+      icon: Icons.local_gas_station_rounded,
+      color: AppColors.danger,
+    ),
+    const PromoModel(
+      id: 'promo_bioskop_20',
+      title: 'Cashback Tiket Bioskop XXI & CGV 20%',
+      description:
+          'Hemat hingga Rp 20.000 nonton film bioskop terbaru dengan scan QRIS FinPay di loket bioskop.',
+      code: 'NONTONSERU',
+      category: 'Cashback',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 20000,
+      icon: Icons.movie_creation_rounded,
+      color: AppColors.primaryDark,
+    ),
+
+    // ---------- 3. INVESTASI & SIMPANAN (5 Voucher) ----------
+    const PromoModel(
       id: 'promo_invest_25',
       title: 'Bonus Unit Reksa Dana Rp 25.000',
       description:
-          'Top Up investasi Reksa Dana Pasar Uang min. Rp 500.000 dan dapatkan unit bonus gratis.',
+          'Top Up investasi Reksa Dana Pasar Uang min. Rp 500.000 dan dapatkan unit bonus reksa dana gratis.',
       code: 'INVESTBONUS',
       category: 'Investasi',
-      validity: 'Berlaku s.d 30 November 2024',
+      validity: 'Berlaku s.d 31 Des 2024',
       discountAmount: 25000,
       icon: Icons.trending_up_rounded,
       color: Color(0xFF0F766E),
     ),
-  ]);
+    const PromoModel(
+      id: 'promo_saving_bonus',
+      title: 'Ekstra Bunga Tabungan +1.5% p.a.',
+      description:
+          'Capai target menabung bulan ini dan nikmati tambahan bunga tabungan hingga total 6.0% p.a.',
+      code: 'NABUNGMAX',
+      category: 'Investasi',
+      validity: 'Berlaku s.d 20 Des 2024',
+      discountAmount: 50000,
+      icon: Icons.savings_rounded,
+      color: AppColors.primary,
+    ),
+    const PromoModel(
+      id: 'promo_emas_30',
+      title: 'Bonus Tabungan Emas Digital Rp 30.000',
+      description:
+          'Beli emas digital FinPay Gold min. 0.5 gram dan dapatkan saldo emas ekstra senilai Rp 30.000.',
+      code: 'EMASFINPAY',
+      category: 'Investasi',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 30000,
+      icon: Icons.diamond_rounded,
+      color: AppColors.gold,
+    ),
+    const PromoModel(
+      id: 'promo_sbn_50',
+      title: 'Cashback Pembelian SBN Ritel Rp 50.000',
+      description:
+          'Investasi aman dijamin pemerintah via SBN Ritel dan peroleh cashback langsung ke saldo FinPay Cash.',
+      code: 'SBNBERKAH',
+      category: 'Investasi',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 50000,
+      icon: Icons.verified_user_rounded,
+      color: AppColors.success,
+    ),
+    const PromoModel(
+      id: 'promo_loan_cb',
+      title: 'Cashback Bunga Pinjaman Pertama 20%',
+      description:
+          'Dapatkan pengembalian bunga pinjaman hingga Rp 50.000 untuk pengajuan pinjaman pertama kali.',
+      code: 'LOANHEMAT',
+      category: 'Cashback',
+      validity: 'Berlaku s.d 31 Des 2024',
+      discountAmount: 50000,
+      icon: Icons.percent_rounded,
+      color: AppColors.primaryDark,
+    ),
+  ];
+
+  /// Daftar voucher promo & status klaimnya.
+  final ValueNotifier<List<PromoModel>> promosNotifier =
+      ValueNotifier<List<PromoModel>>(List<PromoModel>.from(initialPromos));
 
   List<SavingGoalModel> get savingGoals => savingGoalsNotifier.value;
   List<LoanModel> get activeLoans => activeLoansNotifier.value;
-  List<PromoModel> get promos => promosNotifier.value;
+  List<PromoModel> get promos {
+    if (promosNotifier.value.length < initialPromos.length) {
+      promosNotifier.value = List<PromoModel>.from(initialPromos);
+    }
+    return promosNotifier.value;
+  }
 
   // ==================== 1. TABUNGAN IMPIAN (`saving_goals`) ====================
 

@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_dimens.dart';
-import '../../data/dummy/dummy_data.dart';
 import '../../data/models/wallet_model.dart';
 import '../../data/services/transaction_service.dart';
 import '../../data/services/wallet_service.dart';
 import '../../data/services/wealth_service.dart';
-import '../home/widgets/financial_services_section.dart';
-import '../home/widgets/instant_loan_banner.dart';
 import '../services/service_navigation_helper.dart';
+import 'widgets/active_loan_summary_card.dart';
+import 'widgets/asset_distribution_card.dart';
 import 'widgets/finance_header.dart';
 import 'widgets/financial_health_card.dart';
+import 'widgets/promos_section.dart';
 import 'widgets/saving_goals_section.dart';
+import 'widgets/smart_budgeting_card.dart';
 import 'widgets/total_wealth_card.dart';
 
 /// Halaman Keuangan & Portofolio FinPay terintegrasi [WealthService] & [WalletService] (Bagian Tugas Pidi).
+/// Tampilan khusus berfokus pada manajemen kekayaan, distribusi aset, kesehatan arus kas,
+/// target menabung, status cicilan pinjaman, dan voucher finansial (GoPay-style Financial Center).
 class FinancePage extends StatefulWidget {
   const FinancePage({super.key});
 
@@ -67,7 +70,7 @@ class _FinancePageState extends State<FinancePage> {
                         ),
                         sliver: SliverList.list(
                           children: [
-                            // Total Wealth Card (Interaktif & Clickable)
+                            // 1. Total Wealth Card (Interaktif & Clickable)
                             TotalWealthCard(
                               totalWealth: wallet.totalWealth,
                               cashBalance: wallet.cashBalance,
@@ -76,24 +79,24 @@ class _FinancePageState extends State<FinancePage> {
                             ),
                             const SizedBox(height: AppSpacing.section),
 
-                            // Grid Layanan Keuangan Full Page Navigation
-                            FinancialServicesSection(
-                              items: DummyData.services,
-                              onItemTap: (item) {
-                                ServiceNavigationHelper.openService(
-                                  context,
-                                  item.label,
-                                  onStateChanged: _refreshData,
-                                );
-                              },
+                            // 2. Distribusi Portofolio Aset (GoPay-style Alokasi Cash vs Tabungan)
+                            AssetDistributionCard(
+                              cashBalance: wallet.cashBalance,
+                              savingBalance: wallet.savingBalance,
                             ),
                             const SizedBox(height: AppSpacing.section),
 
-                            // Analisis Arus Kas & Kesehatan Finansial
+                            // 3. Pos Anggaran & Smart Budgeting (Spending Pockets - Murni Lokal)
+                            SmartBudgetingCard(
+                              onStateChanged: _refreshData,
+                            ),
+                            const SizedBox(height: AppSpacing.section),
+
+                            // 4. Analisis Arus Kas & Kesehatan Finansial
                             GestureDetector(
                               onTap: () {
                                 ServiceNavigationHelper.openService(
-                                  context,
+                                    context,
                                   'Cash Flow',
                                   onStateChanged: _refreshData,
                                 );
@@ -107,24 +110,21 @@ class _FinancePageState extends State<FinancePage> {
                             ),
                             const SizedBox(height: AppSpacing.section),
 
-                            // Target Menabung & Impian
+                            // 5. Target Menabung & Impian
                             SavingGoalsSection(
                               onStateChanged: _refreshData,
                             ),
                             const SizedBox(height: AppSpacing.section),
 
-                            // Banner Pinjaman Instan OJK
-                            InstantLoanBanner(
-                              maxAmount: DummyData.loanMaxAmount,
-                              minInstallment: DummyData.loanMinInstallment,
-                              interestLabel: DummyData.loanInterest,
-                              onApplyTap: () {
-                                ServiceNavigationHelper.openService(
-                                  context,
-                                  'Pinjaman',
-                                  onStateChanged: _refreshData,
-                                );
-                              },
+                            // 6. Ringkasan Pinjaman & Cicilan Aktif (Bukan banner duplikat)
+                            ActiveLoanSummaryCard(
+                              onStateChanged: _refreshData,
+                            ),
+                            const SizedBox(height: AppSpacing.section),
+
+                            // 7. Promo & Keuntungan Finansial
+                            PromosSection(
+                              onStateChanged: _refreshData,
                             ),
                           ],
                         ),
