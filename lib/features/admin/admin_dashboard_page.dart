@@ -1069,37 +1069,71 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
               ),
               Expanded(
-                child: ListView.builder(
-                  itemCount: _userList.length,
-                  itemBuilder: (context, index) {
-                    final u = _userList[index];
-                    final isSelected = u['id'] == _selectedUserChatId;
+                child: ValueListenableBuilder<List<SupportMessageModel>>(
+                  valueListenable: SupportChatService.instance.messagesNotifier,
+                  builder: (context, _, __) {
+                    final users = _mergedUserList;
+                    return ListView.builder(
+                      itemCount: users.length,
+                      itemBuilder: (context, index) {
+                        final u = users[index];
+                        final uid = u['id'] as String;
+                        final isSelected = uid == _selectedUserChatId;
+                        final unread = SupportChatService.instance
+                            .unreadCountForUser(uid, forAdmin: true);
 
-                    return ListTile(
-                      selected: isSelected,
-                      selectedTileColor: AppColors.primaryLight,
-                      leading: CircleAvatar(
-                        backgroundColor: isSelected ? AppColors.primary : Colors.grey.shade200,
-                        child: Text(
-                          u['name'].toString().substring(0, 1),
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
+                        return ListTile(
+                          selected: isSelected,
+                          selectedTileColor: AppColors.primaryLight,
+                          leading: CircleAvatar(
+                            backgroundColor: isSelected
+                                ? AppColors.primary
+                                : Colors.grey.shade200,
+                            child: Text(
+                              u['name'].toString().isNotEmpty
+                                  ? u['name'].toString().substring(0, 1)
+                                  : 'U',
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      title: Text(u['name'] as String, style: AppTextStyles.label),
-                      subtitle: Text(u['phone'] as String, style: AppTextStyles.caption),
-                      trailing: index == 0
-                          ? Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                              child: const Text('1', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                            )
-                          : null,
-                      onTap: () {
-                        setState(() => _selectedUserChatId = u['id'] as String);
-                        SupportChatService.instance.markMessagesAsRead(u['id'] as String);
+                          title: Text(
+                            u['name'] as String,
+                            style: AppTextStyles.label,
+                          ),
+                          subtitle: Text(
+                            u['phone'] as String,
+                            style: AppTextStyles.caption,
+                          ),
+                          trailing: unread > 0
+                              ? Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    '$unread',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                          onTap: () {
+                            setState(() => _selectedUserChatId = uid);
+                            SupportChatService.instance.markMessagesAsRead(
+                              uid,
+                              readByAdmin: true,
+                            );
+                          },
+                        );
                       },
                     );
                   },
@@ -1124,14 +1158,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             child: ValueListenableBuilder<List<SupportMessageModel>>(
               valueListenable: SupportChatService.instance.messagesNotifier,
               builder: (context, allMessages, _) {
-                final activeChatUser = _userList.firstWhere(
+                final users = _mergedUserList;
+                final activeChatUser = users.firstWhere(
                   (u) => u['id'] == _selectedUserChatId,
-                  orElse: () => _userList.first,
+                  orElse: () => users.first,
                 );
 
-                final messages = allMessages
-                    .where((m) => m.userId == _selectedUserChatId)
-                    .toList();
+                final messages = SupportChatService.instance
+                    .getMessagesForUser(_selectedUserChatId);
 
                 return Column(
                   children: [
