@@ -260,51 +260,66 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
           // Menu Navigasi
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              children: [
-                _SidebarItem(
-                  icon: Icons.dashboard_rounded,
-                  label: 'Ringkasan & Metrik',
-                  isSelected: _selectedTabIndex == 0,
-                  onTap: () => setState(() => _selectedTabIndex = 0),
-                ),
-                _SidebarItem(
-                  icon: Icons.receipt_long_rounded,
-                  label: 'Monitoring Transaksi',
-                  isSelected: _selectedTabIndex == 1,
-                  onTap: () => setState(() => _selectedTabIndex = 1),
-                ),
-                _SidebarItem(
-                  icon: Icons.people_alt_rounded,
-                  label: 'Manajemen Pengguna',
-                  isSelected: _selectedTabIndex == 2,
-                  badge: '${_userList.length}',
-                  onTap: () => setState(() => _selectedTabIndex = 2),
-                ),
-                _SidebarItem(
-                  icon: Icons.support_agent_rounded,
-                  label: 'Live CS & Chat User',
-                  isSelected: _selectedTabIndex == 3,
-                  badge: 'Online',
-                  badgeColor: AppColors.success,
-                  onTap: () => setState(() => _selectedTabIndex = 3),
-                ),
-                _SidebarItem(
-                  icon: Icons.account_balance_rounded,
-                  label: 'Midtrans Sandbox Gateway',
-                  isSelected: _selectedTabIndex == 4,
-                  onTap: () => setState(() => _selectedTabIndex = 4),
-                ),
-                _SidebarItem(
-                  icon: Icons.verified_user_rounded,
-                  label: 'Verifikasi KYC KTP',
-                  isSelected: _selectedTabIndex == 5,
-                  badge: '1 Review',
-                  badgeColor: AppColors.gold,
-                  onTap: () => setState(() => _selectedTabIndex = 5),
-                ),
-              ],
+            child: ValueListenableBuilder<UserProfileModel>(
+              valueListenable: AccountService.instance.userNotifier,
+              builder: (context, _, __) {
+                return ValueListenableBuilder<List<MidtransOrderResult>>(
+                  valueListenable: MidtransService.instance.ordersNotifier,
+                  builder: (context, orders, ___) {
+                    final users = _mergedUserList;
+                    final pendingKyc = _pendingKycCount;
+                    return ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      children: [
+                        _SidebarItem(
+                          icon: Icons.dashboard_rounded,
+                          label: 'Ringkasan & Metrik',
+                          isSelected: _selectedTabIndex == 0,
+                          onTap: () => setState(() => _selectedTabIndex = 0),
+                        ),
+                        _SidebarItem(
+                          icon: Icons.receipt_long_rounded,
+                          label: 'Monitoring Transaksi',
+                          isSelected: _selectedTabIndex == 1,
+                          onTap: () => setState(() => _selectedTabIndex = 1),
+                        ),
+                        _SidebarItem(
+                          icon: Icons.people_alt_rounded,
+                          label: 'Manajemen Pengguna',
+                          isSelected: _selectedTabIndex == 2,
+                          badge: '${users.length}',
+                          onTap: () => setState(() => _selectedTabIndex = 2),
+                        ),
+                        _SidebarItem(
+                          icon: Icons.support_agent_rounded,
+                          label: 'Live CS & Chat User',
+                          isSelected: _selectedTabIndex == 3,
+                          badge: 'Online',
+                          badgeColor: AppColors.success,
+                          onTap: () => setState(() => _selectedTabIndex = 3),
+                        ),
+                        _SidebarItem(
+                          icon: Icons.account_balance_rounded,
+                          label: 'Midtrans Sandbox Gateway',
+                          isSelected: _selectedTabIndex == 4,
+                          badge: '${orders.length}',
+                          onTap: () => setState(() => _selectedTabIndex = 4),
+                        ),
+                        _SidebarItem(
+                          icon: Icons.verified_user_rounded,
+                          label: 'Verifikasi KYC KTP',
+                          isSelected: _selectedTabIndex == 5,
+                          badge: '$pendingKyc Review',
+                          badgeColor: pendingKyc > 0
+                              ? AppColors.gold
+                              : AppColors.success,
+                          onTap: () => setState(() => _selectedTabIndex = 5),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
           ),
 
