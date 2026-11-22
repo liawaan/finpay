@@ -1430,92 +1430,189 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     );
   }
 
+  Future<void> _handleKycDecision({
+    required String userId,
+    required bool approve,
+  }) async {
+    final newStatus = approve ? 'Terverifikasi' : 'Perlu Upload Ulang';
+    final idx = _userList.indexWhere((u) => u['id'] == userId);
+    String userName = 'Pengguna';
+    if (idx >= 0) {
+      userName = _userList[idx]['name'] as String;
+      _userList[idx]['kycStatus'] = newStatus;
+      if (approve) {
+        _userList[idx]['tier'] = 'FinPay Premier';
+      }
+    }
+
+    if (AccountService.instance.currentUser.userId == userId) {
+      userName = AccountService.instance.currentUser.fullName;
+      await AuthService.instance.updateKycStatus(status: newStatus);
+    }
+
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          approve
+              ? 'KYC $userName disetujui (Upgrade ke FinPay Premier).'
+              : 'Permohonan KYC $userName ditolak.',
+        ),
+      ),
+    );
+  }
+
   // 6. KYC VERIFICATION TAB
   Widget _buildKycTab() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppRadius.lgAll,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return ValueListenableBuilder<UserProfileModel>(
+      valueListenable: AccountService.instance.userNotifier,
+      builder: (context, _, __) {
+        final users = _mergedUserList;
+        final pendingCount = _pendingKycCount;
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: AppRadius.lgAll,
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.card,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Pusat Verifikasi KYC (KTP)', style: AppTextStyles.h2),
-              const PillBadge(
-                label: '1 Permohonan Menunggu',
-                backgroundColor: AppColors.goldLight,
-                foregroundColor: Color(0xFFB45309),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Pusat Verifikasi KYC (KTP)', style: AppTextStyles.h2),
+                  PillBadge(
+                    label: '$pendingCount Permohonan Menunggu',
+                    backgroundColor: pendingCount > 0
+                        ? AppColors.goldLight
+                        : AppColors.successLight,
+                    foregroundColor: pendingCount > 0
+                        ? const Color(0xFFB45309)
+                        : AppColors.success,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: users.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final u = users[index];
+                    final uid = u['id'] as String;
+                    final status = u['kycStatus'] as String;
+                    final isVerified = status == 'Terverifikasi';
+                    final nik = (u['nik'] as String?) ?? '3171029102910002';
+
+                    return Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.mdAll,
+                        side: const BorderSide(color: AppColors.border),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: isVerified
+                                    ? AppColors.successLight
+                                    : AppColors.primaryLight,
+                                borderRadius: AppRadius.smAll,
+                              ),
+                              child: Icon(
+                                isVerified
+                                    ? Icons.verified_user_rounded
+                                    : Icons.badge_rounded,
+                                color: isVerified
+                                    ? AppColors.success
+                                    : AppColors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        u['name'] as String,
+                                        style: AppTextStyles.h3,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      PillBadge(
+                                        label: status,
+                                        backgroundColor: isVerified
+                                            ? AppColors.successLight
+                                            : AppColors.goldLight,
+                                        foregroundColor: isVerified
+                                            ? AppColors.success
+                                            : const Color(0xFFB45309),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'NIK KTP: $nik • No HP: ${u['phone']} • Tier: ${u['tier']}',
+                                    style: AppTextStyles.caption,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (!isVerified) ...[
+                              ElevatedButton.icon(
+                                onPressed: () => _handleKycDecision(
+                                  userId: uid,
+                                  approve: true,
+                                ),
+                                icon: const Icon(
+                                  Icons.check_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                                label: const Text(
+                                  'Setujui (Approve)',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.success,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: () => _handleKycDecision(
+                                  userId: uid,
+                                  approve: false,
+                                ),
+                                child: const Text('Tolak'),
+                              ),
+                            ] else
+                              const PillBadge(
+                                label: 'KYC Disetujui',
+                                leadingIcon: Icons.check_circle_rounded,
+                                backgroundColor: AppColors.successLight,
+                                foregroundColor: AppColors.success,
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView(
-              children: [
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.mdAll,
-                    side: const BorderSide(color: AppColors.border),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 64,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: AppRadius.smAll,
-                          ),
-                          child: const Icon(Icons.badge_rounded, color: AppColors.primary),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Budi Santoso', style: AppTextStyles.h3),
-                              const SizedBox(height: 2),
-                              Text('NIK KTP: 3171029102910002 • No HP: 0812-9988-7766', style: AppTextStyles.caption),
-                            ],
-                          ),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('KYC Budi Santoso disetujui.')),
-                            );
-                          },
-                          icon: const Icon(Icons.check_rounded, color: Colors.white, size: 16),
-                          label: const Text('Setujui (Approve)', style: TextStyle(color: Colors.white)),
-                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Permohonan KYC ditolak.')),
-                            );
-                          },
-                          child: const Text('Tolak'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
