@@ -615,72 +615,89 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   // 2. TRANSACTIONS TAB
   Widget _buildTransactionsTab() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppRadius.lgAll,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Filter & Search Bar
-          Row(
+    return ValueListenableBuilder<List<TransactionModel>>(
+      valueListenable: TransactionService.instance.transactionsNotifier,
+      builder: (context, transactions, _) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: AppRadius.lgAll,
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.card,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchTrxController,
-                  decoration: InputDecoration(
-                    hintText: 'Cari Referensi (FPX-...), judul, atau kanal...',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: AppRadius.mdAll,
-                      borderSide: const BorderSide(color: AppColors.border),
+              // Filter & Search Bar
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchTrxController,
+                      decoration: InputDecoration(
+                        hintText:
+                            'Cari Referensi (FPX-...), judul, atau kanal...',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: AppRadius.mdAll,
+                          borderSide:
+                              const BorderSide(color: AppColors.border),
+                        ),
+                      ),
+                      onChanged: (val) => setState(() {}),
                     ),
                   ),
-                  onChanged: (val) => setState(() {}),
-                ),
+                  const SizedBox(width: 16),
+                  DropdownButton<String>(
+                    value: _trxFilter,
+                    items: [
+                      'Semua',
+                      'Pembayaran QRIS',
+                      'Terima QRIS',
+                      'Isi Saldo',
+                      'Transfer',
+                      'Pembayaran Merchant',
+                      'Tarik Tunai',
+                      'Pinjaman',
+                      'Tabungan',
+                    ]
+                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _trxFilter = v);
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  PillBadge(
+                    label: '${transactions.length} Transaksi',
+                    backgroundColor: AppColors.primaryLight,
+                    foregroundColor: AppColors.primary,
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              DropdownButton<String>(
-                value: _trxFilter,
-                items: [
-                  'Semua',
-                  'Pembayaran QRIS',
-                  'Terima QRIS',
-                  'Isi Saldo',
-                  'Transfer',
-                  'Pembayaran Merchant',
-                  'Tarik Tunai',
-                  'Pinjaman',
-                  'Tabungan',
-                ]
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (v) {
-                  if (v != null) setState(() => _trxFilter = v);
-                },
+              const SizedBox(height: 20),
+
+              // Tabel Transaksi
+              Expanded(
+                child: SingleChildScrollView(
+                  child: _buildTransactionTable(
+                    sourceList: transactions,
+                    filterCategory: _trxFilter == 'Semua' ? null : _trxFilter,
+                    searchQuery: _searchTrxController.text,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-
-          // Tabel Transaksi
-          Expanded(
-            child: SingleChildScrollView(
-              child: _buildTransactionTable(
-                filterCategory: _trxFilter == 'Semua' ? null : _trxFilter,
-                searchQuery: _searchTrxController.text,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
