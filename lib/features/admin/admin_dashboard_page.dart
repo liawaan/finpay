@@ -498,94 +498,116 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     return ValueListenableBuilder<WalletModel>(
       valueListenable: WalletService.instance.walletNotifier,
       builder: (context, wallet, _) {
-        final totalTrx = DummyData.transactions.length;
-        final totalVolume = DummyData.transactions.fold<int>(
-          0,
-          (sum, t) => sum + t.amount.abs(),
-        );
+        return ValueListenableBuilder<List<TransactionModel>>(
+          valueListenable: TransactionService.instance.transactionsNotifier,
+          builder: (context, transactions, __) {
+            return ValueListenableBuilder<List<MidtransOrderResult>>(
+              valueListenable: MidtransService.instance.ordersNotifier,
+              builder: (context, orders, ___) {
+                final users = _mergedUserList;
+                final totalTrx = transactions.length;
+                final totalVolume = transactions.fold<int>(
+                  0,
+                  (sum, t) => sum + t.amount.abs(),
+                );
+                final settledOrders =
+                    orders.where((o) => o.isSettled).length;
 
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Row 4 Kartu KPI Utama
-              Row(
-                children: [
-                  Expanded(
-                    child: _KpiCard(
-                      title: 'TOTAL PENGGUNA',
-                      value: '${_userList.length} Pengguna',
-                      subtitle: '+1 user baru hari ini',
-                      icon: Icons.people_outline_rounded,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _KpiCard(
-                      title: 'VOLUME TRANSAKSI (GMV)',
-                      value: CurrencyFormatter.rupiah(totalVolume),
-                      subtitle: '$totalTrx transaksi tercatat',
-                      icon: Icons.trending_up_rounded,
-                      color: AppColors.success,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _KpiCard(
-                      title: 'SALDO CASH BEREDAR',
-                      value: CurrencyFormatter.rupiah(wallet.cashBalance),
-                      subtitle: 'Tabungan: ${CurrencyFormatter.rupiah(wallet.savingBalance)}',
-                      icon: Icons.account_balance_wallet_outlined,
-                      color: const Color(0xFF0F766E),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _KpiCard(
-                      title: 'MIDTRANS SANDBOX',
-                      value: '100% Siap',
-                      subtitle: 'Status: Settlement Otomatis',
-                      icon: Icons.payments_outlined,
-                      color: const Color(0xFFD97706),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Row 4 Kartu KPI Utama
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _KpiCard(
+                              title: 'TOTAL PENGGUNA',
+                              value: '${users.length} Pengguna',
+                              subtitle:
+                                  '$_pendingKycCount akun menunggu review KYC',
+                              icon: Icons.people_outline_rounded,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _KpiCard(
+                              title: 'VOLUME TRANSAKSI (GMV)',
+                              value: CurrencyFormatter.rupiah(totalVolume),
+                              subtitle: '$totalTrx transaksi tercatat',
+                              icon: Icons.trending_up_rounded,
+                              color: AppColors.success,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _KpiCard(
+                              title: 'SALDO CASH BEREDAR',
+                              value:
+                                  CurrencyFormatter.rupiah(wallet.cashBalance),
+                              subtitle:
+                                  'Tabungan: ${CurrencyFormatter.rupiah(wallet.savingBalance)}',
+                              icon: Icons.account_balance_wallet_outlined,
+                              color: const Color(0xFF0F766E),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _KpiCard(
+                              title: 'MIDTRANS SANDBOX',
+                              value: '${orders.length} Order',
+                              subtitle:
+                                  '$settledOrders Settlement • Gateway Aktif',
+                              icon: Icons.payments_outlined,
+                              color: const Color(0xFFD97706),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
 
-              // Tabel Transaksi Terbaru di Dashboard
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: AppRadius.lgAll,
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: AppShadows.card,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Aktivitas Transaksi Terbaru (Live)',
-                          style: AppTextStyles.h3,
+                      // Tabel Transaksi Terbaru di Dashboard
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: AppRadius.lgAll,
+                          border: Border.all(color: AppColors.border),
+                          boxShadow: AppShadows.card,
                         ),
-                        TextButton(
-                          onPressed: () => setState(() => _selectedTabIndex = 1),
-                          child: const Text('Lihat Semua Transaksi →'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Aktivitas Transaksi Terbaru (Live)',
+                                  style: AppTextStyles.h3,
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      setState(() => _selectedTabIndex = 1),
+                                  child:
+                                      const Text('Lihat Semua Transaksi →'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            _buildTransactionTable(
+                              sourceList: transactions,
+                              limit: 5,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTransactionTable(limit: 5),
-                  ],
-                ),
-              ),
-            ],
-          ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -662,8 +684,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     );
   }
 
-  Widget _buildTransactionTable({int? limit, String? filterCategory, String? searchQuery}) {
-    var list = DummyData.transactions;
+  Widget _buildTransactionTable({
+    List<TransactionModel>? sourceList,
+    int? limit,
+    String? filterCategory,
+    String? searchQuery,
+  }) {
+    var list = sourceList ?? TransactionService.instance.transactionsNotifier.value;
 
     if (filterCategory != null && filterCategory.isNotEmpty) {
       final fc = filterCategory.toLowerCase();
