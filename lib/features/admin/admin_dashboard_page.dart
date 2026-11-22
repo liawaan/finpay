@@ -233,24 +233,28 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'FinPay Admin',
-                      style: AppTextStyles.h2.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'FinPay Admin',
+                        style: AppTextStyles.h2.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    Text(
-                      'Web Management Portal',
-                      style: AppTextStyles.caption.copyWith(
-                        color: Colors.white60,
-                        fontSize: 10,
+                      Text(
+                        'Web Management Portal',
+                        style: AppTextStyles.caption.copyWith(
+                          color: Colors.white60,
+                          fontSize: 10,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -396,22 +400,28 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                titles[_selectedTabIndex],
-                style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.w800),
-              ),
-              Text(
-                'Terhubung langsung ke database Firebase Firestore: finpay-app-4026a',
-                style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  titles[_selectedTabIndex],
+                  style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.w800),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'Terhubung langsung ke database Firebase Firestore: finpay-app-4026a',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 12),
           Row(
             children: [
               OutlinedButton.icon(
@@ -1734,15 +1744,18 @@ class _KpiCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: AppTextStyles.caption.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTextStyles.caption.copyWith(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
