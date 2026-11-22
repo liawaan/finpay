@@ -6,8 +6,14 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/dummy/dummy_data.dart';
 import '../../data/models/support_chat_model.dart';
+import '../../data/models/transaction_model.dart';
+import '../../data/models/user_profile_model.dart';
 import '../../data/models/wallet_model.dart';
+import '../../data/services/account_service.dart';
+import '../../data/services/auth_service.dart';
+import '../../data/services/midtrans_service.dart';
 import '../../data/services/support_chat_service.dart';
+import '../../data/services/transaction_service.dart';
 import '../../data/services/wallet_service.dart';
 import '../../shared/widgets/pill_badge.dart';
 
@@ -33,6 +39,38 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final TextEditingController _searchTrxController = TextEditingController();
   String _trxFilter = 'Semua';
   String _selectedUserChatId = 'finpay_user_01';
+  bool _isSyncingFirestore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pullFirestoreDataSilently();
+  }
+
+  Future<void> _pullFirestoreDataSilently() async {
+    await Future.wait<void>([
+      TransactionService.instance.fetchTransactionsFromFirebase(),
+      MidtransService.instance.fetchOrdersFromFirebase(),
+      SupportChatService.instance.fetchMessagesFromFirebase(),
+    ]);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _syncAllFromFirestore() async {
+    if (_isSyncingFirestore) return;
+    setState(() => _isSyncingFirestore = true);
+    await _pullFirestoreDataSilently();
+    if (!mounted) return;
+    setState(() => _isSyncingFirestore = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Data Transaksi, Order Midtrans, & Live CS berhasil disinkronkan dari Firestore.',
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
 
   // Dummy list user untuk manajemen pengguna admin
   final List<Map<String, dynamic>> _userList = [
@@ -331,6 +369,29 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           ),
           Row(
             children: [
+              OutlinedButton.icon(
+                onPressed: _isSyncingFirestore ? null : _syncAllFromFirestore,
+                icon: Icon(
+                  Icons.sync_rounded,
+                  size: 16,
+                  color: _isSyncingFirestore
+                      ? AppColors.textTertiary
+                      : AppColors.primary,
+                ),
+                label: Text(
+                  _isSyncingFirestore ? 'Menyinkronkan...' : 'Sync Firestore',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.border),
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
               // Status Firebase Online Badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
