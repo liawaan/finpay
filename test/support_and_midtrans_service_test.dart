@@ -1,10 +1,16 @@
+import 'package:finpay/core/theme/app_theme.dart';
 import 'package:finpay/data/models/support_chat_model.dart';
 import 'package:finpay/data/services/midtrans_service.dart';
 import 'package:finpay/data/services/support_chat_service.dart';
 import 'package:finpay/data/services/transaction_service.dart';
+import 'package:finpay/features/admin/admin_dashboard_page.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() {
+  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+
   setUp(() {
     FirebaseFirestoreConfig.projectId = '';
   });
@@ -135,5 +141,47 @@ void main() {
           await MidtransService.instance.checkPaymentStatus(result.orderId);
       expect(status, 'settlement');
     });
+  });
+
+  group('AdminDashboardPage Live Integration Tests', () {
+    testWidgets(
+      'AdminDashboardPage merender tab Midtrans Sandbox live dan menyetujui permohonan KYC',
+      (tester) async {
+        tester.view.physicalSize = const Size(1440, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: const AdminDashboardPage(),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.text('FinPay Admin'), findsOneWidget);
+        expect(find.text('Sync Firestore'), findsOneWidget);
+
+        // Buka Tab Midtrans Sandbox Gateway
+        await tester.tap(find.text('Midtrans Sandbox Gateway'));
+        await tester.pump();
+
+        expect(find.text('Audit Transaksi Midtrans Sandbox'), findsOneWidget);
+        expect(find.text('FPX-90821231'), findsOneWidget);
+
+        // Buka Tab Verifikasi KYC KTP
+        await tester.tap(find.text('Verifikasi KYC KTP'));
+        await tester.pump();
+
+        expect(find.text('Pusat Verifikasi KYC (KTP)'), findsOneWidget);
+        expect(find.text('Setujui (Approve)'), findsWidgets);
+
+        // Setujui satu permohonan KYC
+        await tester.tap(find.text('Setujui (Approve)').first);
+        await tester.pump();
+
+        expect(find.textContaining('disetujui'), findsOneWidget);
+      },
+    );
   });
 }
