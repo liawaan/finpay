@@ -1302,67 +1302,100 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   // 5. MIDTRANS SANDBOX GATEWAY TAB
   Widget _buildMidtransTab() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppRadius.lgAll,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return ValueListenableBuilder<List<MidtransOrderResult>>(
+      valueListenable: MidtransService.instance.ordersNotifier,
+      builder: (context, orders, _) {
+        final totalSettledAmount = orders
+            .where((o) => o.isSettled)
+            .fold<int>(0, (sum, o) => sum + o.amount);
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: AppRadius.lgAll,
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.card,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Audit Transaksi Midtrans Sandbox', style: AppTextStyles.h2),
-              const PillBadge(
-                label: 'Mode: Sandbox Simulator',
-                backgroundColor: AppColors.primaryLight,
-                foregroundColor: AppColors.primary,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Audit Transaksi Midtrans Sandbox',
+                    style: AppTextStyles.h2,
+                  ),
+                  Row(
+                    children: [
+                      PillBadge(
+                        label:
+                            '${orders.length} Order • ${CurrencyFormatter.rupiah(totalSettledAmount)}',
+                        backgroundColor: AppColors.successLight,
+                        foregroundColor: AppColors.success,
+                      ),
+                      const SizedBox(width: 8),
+                      const PillBadge(
+                        label: 'Mode: Sandbox Simulator',
+                        backgroundColor: AppColors.primaryLight,
+                        foregroundColor: AppColors.primary,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Order pembayaran virtual account dan QRIS yang diproses melalui gateway Midtrans (koleksi midtrans_orders)',
+                style: AppTextStyles.bodySmall,
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(1.6),
+                      1: FlexColumnWidth(1.4),
+                      2: FlexColumnWidth(2.2),
+                      3: FlexColumnWidth(1.6),
+                      4: FlexColumnWidth(1.2),
+                    },
+                    border: TableBorder(
+                      horizontalInside: BorderSide(
+                        color: Colors.grey.shade200,
+                        width: 1,
+                      ),
+                    ),
+                    children: [
+                      TableRow(
+                        decoration: BoxDecoration(color: Colors.grey.shade50),
+                        children: [
+                          _tableHeader('Order ID Midtrans'),
+                          _tableHeader('Nominal'),
+                          _tableHeader('Kanal Virtual Account / QRIS'),
+                          _tableHeader('Snap Token'),
+                          _tableHeader('Status Settlement'),
+                        ],
+                      ),
+                      for (final order in orders)
+                        _midtransRow(
+                          order.orderId,
+                          order.amount,
+                          '${order.paymentMethod} (${order.vaNumber})',
+                          order.snapToken,
+                          order.isSettled
+                              ? 'Settlement'
+                              : order.status.toUpperCase(),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Order pembayaran virtual account dan QRIS yang diproses melalui gateway Midtrans',
-            style: AppTextStyles.bodySmall,
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1.8),
-                  1: FlexColumnWidth(1.5),
-                  2: FlexColumnWidth(2.0),
-                  3: FlexColumnWidth(1.5),
-                  4: FlexColumnWidth(1.2),
-                },
-                border: TableBorder(
-                  horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
-                ),
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(color: Colors.grey.shade50),
-                    children: [
-                      _tableHeader('Order ID Midtrans'),
-                      _tableHeader('Nominal'),
-                      _tableHeader('Kanal Virtual Account'),
-                      _tableHeader('Snap Token'),
-                      _tableHeader('Status Settlement'),
-                    ],
-                  ),
-                  _midtransRow('FPX-90821231', 500000, 'BCA Virtual Account (88012 081234567890)', 'sandbox-token-fpx-90821231', 'Settlement'),
-                  _midtransRow('FPX-90820012', 250000, 'Mandiri Virtual Account (88013 081299887766)', 'sandbox-token-fpx-90820012', 'Settlement'),
-                  _midtransRow('FPX-90772100', 1000000, 'BRI Virtual Account (88014 081234567890)', 'sandbox-token-fpx-90772100', 'Settlement'),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
