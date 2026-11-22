@@ -79,6 +79,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       'name': DummyData.userName,
       'email': 'reza.pratama@email.com',
       'phone': DummyData.phoneNumber,
+      'nik': '3174123456780001',
       'tier': DummyData.membership,
       'kycStatus': 'Terverifikasi',
       'isBlocked': false,
@@ -88,6 +89,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       'name': 'Budi Santoso',
       'email': 'budi.santoso@email.com',
       'phone': '0812-9988-7766',
+      'nik': '3171029102910002',
       'tier': 'FinPay Reguler',
       'kycStatus': 'Menunggu Review',
       'isBlocked': false,
@@ -97,6 +99,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       'name': 'Siska Pertiwi',
       'email': 'siska.pertiwi@email.com',
       'phone': '0813-1122-3344',
+      'nik': '3173098811220003',
       'tier': 'FinPay Premier',
       'kycStatus': 'Terverifikasi',
       'isBlocked': false,
@@ -106,11 +109,38 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       'name': 'Eko Kurniawan',
       'email': 'eko.kurniawan@email.com',
       'phone': '0857-4455-6677',
+      'nik': '3275012233440004',
       'tier': 'FinPay Reguler',
       'kycStatus': 'Belum Upload',
       'isBlocked': false,
     },
   ];
+
+  /// Menggabungkan direktori pengguna admin dengan akun pengguna yang sedang login aktif di aplikasi.
+  List<Map<String, dynamic>> get _mergedUserList {
+    final active = AccountService.instance.currentUser;
+    final idx = _userList.indexWhere((u) => u['id'] == active.userId);
+    final activeEntry = <String, dynamic>{
+      'id': active.userId,
+      'name': active.fullName,
+      'email': active.email,
+      'phone': active.phoneNumber,
+      'nik': active.nik,
+      'tier': active.membership,
+      'kycStatus': active.kycStatus,
+      'isBlocked': idx >= 0 ? (_userList[idx]['isBlocked'] ?? false) : false,
+    };
+    if (idx >= 0) {
+      _userList[idx] = activeEntry;
+    } else if (active.userId.trim().isNotEmpty) {
+      _userList.insert(0, activeEntry);
+    }
+    return _userList;
+  }
+
+  int get _pendingKycCount => _mergedUserList
+      .where((u) => u['kycStatus'] != 'Terverifikasi')
+      .length;
 
   @override
   void dispose() {
