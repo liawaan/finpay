@@ -825,136 +825,215 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   // 3. USERS MANAGEMENT TAB
   Widget _buildUsersTab() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppRadius.lgAll,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return ValueListenableBuilder<UserProfileModel>(
+      valueListenable: AccountService.instance.userNotifier,
+      builder: (context, activeUser, _) {
+        final users = _mergedUserList;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: AppRadius.lgAll,
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.card,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Daftar Seluruh Pengguna FinPay', style: AppTextStyles.h2),
-              PillBadge(
-                label: '${_userList.length} Akun Terdaftar',
-                backgroundColor: AppColors.primaryLight,
-                foregroundColor: AppColors.primary,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Daftar Seluruh Pengguna FinPay',
+                    style: AppTextStyles.h2,
+                  ),
+                  PillBadge(
+                    label: '${users.length} Akun Terdaftar',
+                    backgroundColor: AppColors.primaryLight,
+                    foregroundColor: AppColors.primary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(2.0),
+                      1: FlexColumnWidth(1.8),
+                      2: FlexColumnWidth(1.5),
+                      3: FlexColumnWidth(1.5),
+                      4: FlexColumnWidth(1.5),
+                      5: FlexColumnWidth(1.5),
+                    },
+                    border: TableBorder(
+                      horizontalInside: BorderSide(
+                        color: Colors.grey.shade200,
+                        width: 1,
+                      ),
+                    ),
+                    children: [
+                      TableRow(
+                        decoration: BoxDecoration(color: Colors.grey.shade50),
+                        children: [
+                          _tableHeader('Nama Pengguna'),
+                          _tableHeader('Email'),
+                          _tableHeader('Nomor HP'),
+                          _tableHeader('Membership Tier'),
+                          _tableHeader('Status KYC'),
+                          _tableHeader('Aksi Admin'),
+                        ],
+                      ),
+                      for (final user in users)
+                        TableRow(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 8,
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: AppColors.primaryLight,
+                                    child: Text(
+                                      user['name'].toString().isNotEmpty
+                                          ? user['name']
+                                              .toString()
+                                              .substring(0, 1)
+                                          : 'U',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      user['name'] as String,
+                                      style: AppTextStyles.body.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 8,
+                              ),
+                              child: Text(
+                                user['email'] as String,
+                                style: AppTextStyles.bodySmall,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 8,
+                              ),
+                              child: Text(
+                                user['phone'] as String,
+                                style: AppTextStyles.bodySmall,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 8,
+                              ),
+                              child: Text(
+                                user['tier'] as String,
+                                style: AppTextStyles.label.copyWith(
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 8,
+                              ),
+                              child: PillBadge(
+                                label: user['kycStatus'] as String,
+                                backgroundColor:
+                                    user['kycStatus'] == 'Terverifikasi'
+                                        ? AppColors.successLight
+                                        : AppColors.goldLight,
+                                foregroundColor:
+                                    user['kycStatus'] == 'Terverifikasi'
+                                        ? AppColors.success
+                                        : const Color(0xFFB45309),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: 8,
+                              ),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.chat_bubble_outline_rounded,
+                                      color: AppColors.primary,
+                                      size: 20,
+                                    ),
+                                    tooltip: 'Kirim Pesan CS',
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedUserChatId =
+                                            user['id'] as String;
+                                        _selectedTabIndex = 3;
+                                      });
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      user['isBlocked'] == true
+                                          ? Icons.lock_open_rounded
+                                          : Icons.block_rounded,
+                                      color: user['isBlocked'] == true
+                                          ? AppColors.success
+                                          : AppColors.danger,
+                                      size: 20,
+                                    ),
+                                    tooltip: user['isBlocked'] == true
+                                        ? 'Buka Blokir'
+                                        : 'Bekukan Akun',
+                                    onPressed: () {
+                                      setState(() {
+                                        user['isBlocked'] =
+                                            !(user['isBlocked'] as bool);
+                                      });
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Status akun ${user['name']} diperbarui.',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(2.0),
-                  1: FlexColumnWidth(1.8),
-                  2: FlexColumnWidth(1.5),
-                  3: FlexColumnWidth(1.5),
-                  4: FlexColumnWidth(1.5),
-                  5: FlexColumnWidth(1.5),
-                },
-                border: TableBorder(
-                  horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
-                ),
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(color: Colors.grey.shade50),
-                    children: [
-                      _tableHeader('Nama Pengguna'),
-                      _tableHeader('Email'),
-                      _tableHeader('Nomor HP'),
-                      _tableHeader('Membership Tier'),
-                      _tableHeader('Status KYC'),
-                      _tableHeader('Aksi Admin'),
-                    ],
-                  ),
-                  for (final user in _userList)
-                    TableRow(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 16,
-                                backgroundColor: AppColors.primaryLight,
-                                child: Text(
-                                  user['name'].toString().substring(0, 1),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(user['name'] as String, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                          child: Text(user['email'] as String, style: AppTextStyles.bodySmall),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                          child: Text(user['phone'] as String, style: AppTextStyles.bodySmall),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                          child: Text(user['tier'] as String, style: AppTextStyles.label.copyWith(color: AppColors.primary)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                          child: PillBadge(
-                            label: user['kycStatus'] as String,
-                            backgroundColor: user['kycStatus'] == 'Terverifikasi' ? AppColors.successLight : AppColors.goldLight,
-                            foregroundColor: user['kycStatus'] == 'Terverifikasi' ? AppColors.success : const Color(0xFFB45309),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.primary, size: 20),
-                                tooltip: 'Kirim Pesan CS',
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedUserChatId = user['id'] as String;
-                                    _selectedTabIndex = 3; // Buka tab live chat
-                                  });
-                                },
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  user['isBlocked'] == true ? Icons.lock_open_rounded : Icons.block_rounded,
-                                  color: user['isBlocked'] == true ? AppColors.success : AppColors.danger,
-                                  size: 20,
-                                ),
-                                tooltip: user['isBlocked'] == true ? 'Buka Blokir' : 'Bekukan Akun',
-                                onPressed: () {
-                                  setState(() {
-                                    user['isBlocked'] = !(user['isBlocked'] as bool);
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Status akun ${user['name']} diperbarui.')),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
