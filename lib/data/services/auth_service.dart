@@ -75,6 +75,16 @@ class AuthService {
         pin: '123456',
       ),
     ),
+    'ali.akbar@email.com': (
+      password: 'password123',
+      profile: const UserProfileModel(
+        userId: 'finpay_user_ali',
+        fullName: 'Ali Akbar',
+        email: 'ali.akbar@email.com',
+        phoneNumber: '0813-8899-7766',
+        pin: '123456',
+      ),
+    ),
   };
 
   final Map<String, _UserSessionSnapshot> _userSnapshots = {};
@@ -144,6 +154,61 @@ class AuthService {
       activeLoans: List<LoanModel>.from(
         WealthService.instance.activeLoans,
       ),
+    );
+  }
+
+  /// Mengkreditkan saldo & riwayat transaksi masuk pada akun penerima saat terjadi Transfer QRIS Antar Pengguna.
+  void creditPeerUserSession({
+    required String recipientUserId,
+    required String recipientName,
+    required int amount,
+    required TransactionModel incomingTransaction,
+  }) {
+    final existing = _userSnapshots[recipientUserId];
+    if (existing != null) {
+      existing.cashBalance += amount;
+      existing.transactions.insert(0, incomingTransaction);
+      return;
+    }
+
+    UserProfileModel? targetProfile;
+    for (final entry in _localUsers.values) {
+      if (entry.profile.userId == recipientUserId) {
+        targetProfile = entry.profile;
+        break;
+      }
+    }
+
+    targetProfile ??= UserProfileModel(
+      userId: recipientUserId,
+      fullName: recipientName,
+      email: '${recipientName.toLowerCase().replaceAll(' ', '.')}@email.com',
+      phoneNumber: '0813-8899-7766',
+      pin: '123456',
+    );
+
+    final baseCash = recipientUserId == 'finpay_user_01' ? 12450000 : 1500000;
+    final baseSaving = recipientUserId == 'finpay_user_01' ? 2400000 : 0;
+    final baseTransactions = recipientUserId == 'finpay_user_01'
+        ? List<TransactionModel>.from(_initialRezaTransactions)
+        : <TransactionModel>[];
+
+    baseTransactions.insert(0, incomingTransaction);
+
+    _userSnapshots[recipientUserId] = _UserSessionSnapshot(
+      profile: targetProfile,
+      cashBalance: baseCash + amount,
+      savingBalance: baseSaving,
+      transactions: baseTransactions,
+      linkedAccounts: recipientUserId == 'finpay_user_01'
+          ? List<LinkedAccountModel>.from(_initialRezaAccounts)
+          : <LinkedAccountModel>[],
+      savingGoals: recipientUserId == 'finpay_user_01'
+          ? List<SavingGoalModel>.from(_initialRezaGoals)
+          : <SavingGoalModel>[],
+      activeLoans: recipientUserId == 'finpay_user_01'
+          ? List<LoanModel>.from(_initialRezaLoans)
+          : <LoanModel>[],
     );
   }
 
