@@ -564,7 +564,6 @@ class WealthService {
       'Mingguan (7 Hari Terakhir)',
       'Bulanan (Bulan Ini)',
       'Tahunan (Tahun ${now.year})',
-      'Tahunan (Tahun 2024)',
     ];
   }
 
@@ -575,16 +574,6 @@ class WealthService {
   ) {
     final p = period.toLowerCase();
     if (p.isEmpty || p.contains('semua') || p.contains('tahunan')) {
-      if (p.contains('2024')) {
-        return source
-            .where(
-              (t) =>
-                  t.dateGroup.contains('2024') ||
-                  t.dateGroup.toLowerCase().contains('hari ini') ||
-                  t.dateGroup.toLowerCase().contains('kemarin'),
-            )
-            .toList();
-      }
       return source;
     }
     if (p.contains('harian') || p.contains('hari ini')) {
