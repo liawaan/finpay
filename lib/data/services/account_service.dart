@@ -200,7 +200,9 @@ class AccountService {
     if (cleanCode.isEmpty) return null;
 
     try {
-      final url = Uri.parse('${FirebaseFirestoreConfig.baseUrl}/users');
+      final url = Uri.parse(
+        '${FirebaseFirestoreConfig.baseUrl}/users?pageSize=200',
+      );
       final response = await http.get(url).timeout(const Duration(seconds: 6));
 
       if (response.statusCode == 200) {
@@ -361,7 +363,9 @@ class AccountService {
     if (!FirebaseFirestoreConfig.isConfigured) return const [];
 
     try {
-      final url = Uri.parse('${FirebaseFirestoreConfig.baseUrl}/users');
+      final url = Uri.parse(
+        '${FirebaseFirestoreConfig.baseUrl}/users?pageSize=200',
+      );
       final response = await http.get(url).timeout(const Duration(seconds: 6));
 
       if (response.statusCode == 200) {
@@ -393,7 +397,9 @@ class AccountService {
     final cleanEmail = email.trim().toLowerCase();
 
     try {
-      final url = Uri.parse('${FirebaseFirestoreConfig.baseUrl}/users');
+      final url = Uri.parse(
+        '${FirebaseFirestoreConfig.baseUrl}/users?pageSize=200',
+      );
       final response = await http.get(url).timeout(const Duration(seconds: 6));
 
       if (response.statusCode == 200) {
@@ -428,7 +434,9 @@ class AccountService {
     if (normalizedTarget.isEmpty) return null;
 
     try {
-      final url = Uri.parse('${FirebaseFirestoreConfig.baseUrl}/users');
+      final url = Uri.parse(
+        '${FirebaseFirestoreConfig.baseUrl}/users?pageSize=200',
+      );
       final response = await http.get(url).timeout(const Duration(seconds: 6));
 
       if (response.statusCode == 200) {

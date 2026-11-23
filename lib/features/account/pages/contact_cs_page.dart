@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -30,7 +32,9 @@ class _ContactCsPageState extends State<ContactCsPage> {
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scroll = ScrollController();
-  bool _isSyncing = false;
+  Timer? _liveChatTimer;
+  bool _isPolling = false;
+  int _lastMessageCount = 0;
 
   UserProfileModel get _activeUser => AccountService.instance.currentUser;
 
@@ -50,38 +54,40 @@ class _ContactCsPageState extends State<ContactCsPage> {
       _activeUserId,
       readByAdmin: false,
     );
-    SupportChatService.instance.fetchMessagesFromFirebase(
-      userId: _activeUserId,
+    _pollChatRealtime();
+    _liveChatTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _pollChatRealtime(),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
   }
 
   @override
   void dispose() {
+    _liveChatTimer?.cancel();
     _controller.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
-  Future<void> _refreshChats() async {
-    if (_isSyncing) return;
-    setState(() => _isSyncing = true);
-    await SupportChatService.instance.fetchMessagesFromFirebase(
-      userId: _activeUserId,
-    );
-    SupportChatService.instance.markMessagesAsRead(
-      _activeUserId,
-      readByAdmin: false,
-    );
-    if (!mounted) return;
-    setState(() => _isSyncing = false);
-    _scrollToEnd();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Riwayat chat Live CS berhasil disinkronkan.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _pollChatRealtime() async {
+    if (_isPolling) return;
+    _isPolling = true;
+    try {
+      final msgs = await SupportChatService.instance.fetchMessagesFromFirebase(
+        userId: _activeUserId,
+      );
+      SupportChatService.instance.markMessagesAsRead(
+        _activeUserId,
+        readByAdmin: false,
+      );
+      if (mounted && msgs.length > _lastMessageCount) {
+        _lastMessageCount = msgs.length;
+        _scrollToEnd();
+      }
+    } finally {
+      _isPolling = false;
+    }
   }
 
   Future<void> _send(String raw) async {
@@ -128,16 +134,8 @@ class _ContactCsPageState extends State<ContactCsPage> {
   Widget build(BuildContext context) {
     return SubPageScaffold(
       title: 'Bantuan & Live CS',
-      actions: [
-        IconButton(
-          onPressed: _isSyncing ? null : _refreshChats,
-          tooltip: 'Sinkronkan Chat Firestore',
-          icon: Icon(
-            Icons.sync_rounded,
-            color: _isSyncing ? AppColors.textTertiary : AppColors.primary,
-          ),
-        ),
-        const Padding(
+      actions: const [
+        Padding(
           padding: EdgeInsets.only(right: AppSpacing.page),
           child: Center(
             child: PillBadge(

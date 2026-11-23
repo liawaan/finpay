@@ -80,8 +80,9 @@ class SupportChatService {
     }
 
     try {
-      final url =
-          Uri.parse('${FirebaseFirestoreConfig.baseUrl}/support_chats');
+      final url = Uri.parse(
+        '${FirebaseFirestoreConfig.baseUrl}/support_chats?pageSize=200',
+      );
       final response = await http.get(url).timeout(const Duration(seconds: 6));
 
       if (response.statusCode == 200) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -40,36 +42,39 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   String _trxFilter = 'Semua';
   String _selectedUserChatId = 'finpay_user_01';
   bool _isSyncingFirestore = false;
+  List<UserProfileModel> _firestoreUsers = const [];
+  final Map<String, bool> _blockedOverrides = <String, bool>{};
+  final Map<String, String> _kycOverrides = <String, String>{};
+  Timer? _liveSyncTimer;
 
   @override
   void initState() {
     super.initState();
     _pullFirestoreDataSilently();
+    _liveSyncTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _pullFirestoreDataSilently(),
+    );
   }
 
   Future<void> _pullFirestoreDataSilently() async {
-    await Future.wait<void>([
-      TransactionService.instance.fetchTransactionsFromFirebase(),
-      MidtransService.instance.fetchOrdersFromFirebase(),
-      SupportChatService.instance.fetchMessagesFromFirebase(),
-    ]);
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _syncAllFromFirestore() async {
     if (_isSyncingFirestore) return;
-    setState(() => _isSyncingFirestore = true);
-    await _pullFirestoreDataSilently();
-    if (!mounted) return;
-    setState(() => _isSyncingFirestore = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Data Transaksi, Order Midtrans, & Live CS berhasil disinkronkan dari Firestore.',
-        ),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    _isSyncingFirestore = true;
+    try {
+      final results = await Future.wait<dynamic>([
+        AccountService.instance.fetchAllUsersFromFirestore(),
+        TransactionService.instance.fetchTransactionsFromFirebase(),
+        MidtransService.instance.fetchOrdersFromFirebase(),
+        SupportChatService.instance.fetchMessagesFromFirebase(),
+      ]);
+      final fetchedUsers = results[0] as List<UserProfileModel>;
+      if (fetchedUsers.isNotEmpty) {
+        _firestoreUsers = fetchedUsers;
+      }
+      if (mounted) setState(() {});
+    } finally {
+      _isSyncingFirestore = false;
+    }
   }
 
   // Dummy list user untuk manajemen pengguna admin
@@ -116,26 +121,76 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     },
   ];
 
-  /// Menggabungkan direktori pengguna admin dengan akun pengguna yang sedang login aktif di aplikasi.
+  /// Menggabungkan seluruh pengguna dari Firebase Firestore (`users`), akun aktif,
+  /// serta pengguna yang pernah mengirim pesan CS (`support_chats`).
   List<Map<String, dynamic>> get _mergedUserList {
-    final active = AccountService.instance.currentUser;
-    final idx = _userList.indexWhere((u) => u['id'] == active.userId);
-    final activeEntry = <String, dynamic>{
-      'id': active.userId,
-      'name': active.fullName,
-      'email': active.email,
-      'phone': active.phoneNumber,
-      'nik': active.nik,
-      'tier': active.membership,
-      'kycStatus': active.kycStatus,
-      'isBlocked': idx >= 0 ? (_userList[idx]['isBlocked'] ?? false) : false,
-    };
-    if (idx >= 0) {
-      _userList[idx] = activeEntry;
-    } else if (active.userId.trim().isNotEmpty) {
-      _userList.insert(0, activeEntry);
+    final byId = <String, Map<String, dynamic>>{};
+
+    // 1. Jika Firebase belum terhubung/kosong, pakai daftar bawaan sebagai fallback.
+    if (_firestoreUsers.isEmpty) {
+      for (final u in _userList) {
+        final id = u['id'] as String;
+        byId[id] = Map<String, dynamic>.from(u);
+      }
+    } else {
+      for (final u in _firestoreUsers) {
+        byId[u.userId] = <String, dynamic>{
+          'id': u.userId,
+          'name': u.fullName,
+          'email': u.email,
+          'phone': u.phoneNumber,
+          'nik': u.nik,
+          'tier': u.membership,
+          'kycStatus': _kycOverrides[u.userId] ?? u.kycStatus,
+          'isBlocked': _blockedOverrides[u.userId] ?? false,
+        };
+      }
     }
-    return _userList;
+
+    // 2. Pastikan user yang sedang aktif di sesi lokal juga ikut tampil.
+    final active = AccountService.instance.currentUser;
+    if (active.userId.trim().isNotEmpty) {
+      byId[active.userId] = <String, dynamic>{
+        'id': active.userId,
+        'name': active.fullName,
+        'email': active.email,
+        'phone': active.phoneNumber,
+        'nik': active.nik,
+        'tier': active.membership,
+        'kycStatus': _kycOverrides[active.userId] ?? active.kycStatus,
+        'isBlocked': _blockedOverrides[active.userId] ?? false,
+      };
+    }
+
+    // 3. Pastikan setiap pengirim pesan CS dari Firestore selalu muncul di Inbox Admin.
+    for (final msg in SupportChatService.instance.messagesNotifier.value) {
+      if (msg.userId.trim().isEmpty) continue;
+      byId.putIfAbsent(
+        msg.userId,
+        () => <String, dynamic>{
+          'id': msg.userId,
+          'name': msg.isFromAdmin ? 'Pengguna (${msg.userId})' : msg.userName,
+          'email': '-',
+          'phone': '-',
+          'nik': '-',
+          'tier': 'FinPay Reguler',
+          'kycStatus': _kycOverrides[msg.userId] ?? 'Menunggu Review',
+          'isBlocked': _blockedOverrides[msg.userId] ?? false,
+        },
+      );
+    }
+
+    // Terapkan override lokal (jika admin baru saja klik Blokir / ACC KYC)
+    for (final entry in byId.entries) {
+      if (_blockedOverrides.containsKey(entry.key)) {
+        entry.value['isBlocked'] = _blockedOverrides[entry.key];
+      }
+      if (_kycOverrides.containsKey(entry.key)) {
+        entry.value['kycStatus'] = _kycOverrides[entry.key];
+      }
+    }
+
+    return byId.values.toList();
   }
 
   int get _pendingKycCount => _mergedUserList
@@ -144,6 +199,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   @override
   void dispose() {
+    _liveSyncTimer?.cancel();
     _adminReplyController.dispose();
     _searchTrxController.dispose();
     super.dispose();
@@ -153,9 +209,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     final text = _adminReplyController.text.trim();
     if (text.isEmpty) return;
 
-    final targetUser = _userList.firstWhere(
+    final users = _mergedUserList;
+    final targetUser = users.firstWhere(
       (u) => u['id'] == _selectedUserChatId,
-      orElse: () => _userList.first,
+      orElse: () => users.first,
     );
 
     SupportChatService.instance.sendMessage(
@@ -424,30 +481,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           const SizedBox(width: 12),
           Row(
             children: [
-              OutlinedButton.icon(
-                onPressed: _isSyncingFirestore ? null : _syncAllFromFirestore,
-                icon: Icon(
-                  Icons.sync_rounded,
-                  size: 16,
-                  color: _isSyncingFirestore
-                      ? AppColors.textTertiary
-                      : AppColors.primary,
-                ),
-                label: Text(
-                  _isSyncingFirestore ? 'Menyinkronkan...' : 'Sync Firestore',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.border),
-                  shape: const StadiumBorder(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              // Status Firebase Online Badge
+              // Status Firebase Realtime Badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
@@ -467,7 +501,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Firebase Online',
+                      'Firebase Realtime',
                       style: AppTextStyles.labelSmall.copyWith(
                         color: AppColors.success,
                         fontWeight: FontWeight.bold,
@@ -1032,9 +1066,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                         ? 'Buka Blokir'
                                         : 'Bekukan Akun',
                                     onPressed: () {
+                                      final uid = user['id'] as String;
+                                      final nextBlocked =
+                                          !(user['isBlocked'] == true);
                                       setState(() {
-                                        user['isBlocked'] =
-                                            !(user['isBlocked'] as bool);
+                                        _blockedOverrides[uid] = nextBlocked;
                                       });
                                       ScaffoldMessenger.of(context)
                                           .showSnackBar(
@@ -1097,7 +1133,22 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 child: ValueListenableBuilder<List<SupportMessageModel>>(
                   valueListenable: SupportChatService.instance.messagesNotifier,
                   builder: (context, _, __) {
-                    final users = _mergedUserList;
+                    final users = List<Map<String, dynamic>>.from(_mergedUserList);
+                    // Urutkan inbox agar user dengan pesan terbaru / belum dibaca tampil di atas.
+                    users.sort((a, b) {
+                      final msgsA = SupportChatService.instance
+                          .getMessagesForUser(a['id'] as String);
+                      final msgsB = SupportChatService.instance
+                          .getMessagesForUser(b['id'] as String);
+                      final timeA = msgsA.isNotEmpty
+                          ? msgsA.last.timestamp
+                          : DateTime.fromMillisecondsSinceEpoch(0);
+                      final timeB = msgsB.isNotEmpty
+                          ? msgsB.last.timestamp
+                          : DateTime.fromMillisecondsSinceEpoch(0);
+                      return timeB.compareTo(timeA);
+                    });
+
                     return ListView.builder(
                       itemCount: users.length,
                       itemBuilder: (context, index) {
@@ -1106,6 +1157,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                         final isSelected = uid == _selectedUserChatId;
                         final unread = SupportChatService.instance
                             .unreadCountForUser(uid, forAdmin: true);
+                        final userMsgs = SupportChatService.instance
+                            .getMessagesForUser(uid);
+                        final lastPreview = userMsgs.isNotEmpty
+                            ? userMsgs.last.text
+                            : (u['phone'] as String);
 
                         return ListTile(
                           selected: isSelected,
@@ -1129,10 +1185,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                           title: Text(
                             u['name'] as String,
                             style: AppTextStyles.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            u['phone'] as String,
+                            lastPreview,
                             style: AppTextStyles.caption,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           trailing: unread > 0
                               ? Container(

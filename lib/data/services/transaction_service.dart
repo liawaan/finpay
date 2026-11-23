@@ -96,7 +96,9 @@ class TransactionService {
     }
 
     try {
-      final url = Uri.parse('${FirebaseFirestoreConfig.baseUrl}/transactions');
+      final url = Uri.parse(
+        '${FirebaseFirestoreConfig.baseUrl}/transactions?pageSize=200',
+      );
       final response = await http.get(url).timeout(const Duration(seconds: 6));
 
       if (response.statusCode == 200) {
