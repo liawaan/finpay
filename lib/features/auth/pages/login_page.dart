@@ -39,6 +39,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   static const String _demoPhone = '812-3456-7890';
+  static const String _demoAliPhone = '813-8899-7766';
   static const String _demoPin = '123456';
 
   final TextEditingController _idController = TextEditingController();
@@ -90,11 +91,23 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  /// Pintasan untuk demo/presentasi: mengisi akun contoh.
+  /// Pintasan untuk demo/presentasi: mengisi akun contoh Reza.
   void _fillDemo() {
     setState(() {
       _phoneMode = true;
       _idController.text = _demoPhone;
+      _pwController.text = _demoPin;
+      _idError = null;
+      _pwError = null;
+      _formError = null;
+    });
+  }
+
+  /// Pintasan cepat untuk mengisi kredensial akun Ali Akbar.
+  void _fillAliAccount() {
+    setState(() {
+      _phoneMode = true;
+      _idController.text = _demoAliPhone;
       _pwController.text = _demoPin;
       _idError = null;
       _pwError = null;
@@ -423,21 +436,43 @@ class _LoginPageState extends State<LoginPage> {
           ],
         ),
         // Pintasan demo: sengaja kecil dan di paling bawah.
-        Center(
-          child: TextButton.icon(
-            onPressed: _fillDemo,
-            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-            icon: const Icon(
-              Icons.bolt_rounded,
-              size: 16,
-              color: AppColors.textTertiary,
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: AppSpacing.sm,
+          children: [
+            TextButton.icon(
+              onPressed: _fillAliAccount,
+              style:
+                  TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              icon: const Icon(
+                Icons.person_pin_rounded,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              label: Text(
+                'Isi Akun Ali',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-            label: Text(
-              'Isi akun demo',
-              style: AppTextStyles.caption
-                  .copyWith(color: AppColors.textTertiary),
+            TextButton.icon(
+              onPressed: _fillDemo,
+              style:
+                  TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              icon: const Icon(
+                Icons.bolt_rounded,
+                size: 16,
+                color: AppColors.textTertiary,
+              ),
+              label: Text(
+                'Isi akun demo',
+                style: AppTextStyles.caption
+                    .copyWith(color: AppColors.textTertiary),
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );
