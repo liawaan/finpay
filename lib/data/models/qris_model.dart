@@ -67,6 +67,20 @@ class QrisPayload {
 
   bool get isDynamic => amount != null && amount! > 0;
 
+  /// Menandakan apakah QRIS ini milik pengguna personal FinPay (Transfer Antar Pengguna).
+  bool get isFinPayUser =>
+      terminalLabel == 'FINPAYUSER' ||
+      (referenceLabel != null && referenceLabel!.startsWith('FPUSER:'));
+
+  /// Mengambil `userId` pemilik QRIS jika QRIS ini adalah milik pengguna FinPay.
+  String? get recipientUserId {
+    if (referenceLabel != null && referenceLabel!.startsWith('FPUSER:')) {
+      final uid = referenceLabel!.substring('FPUSER:'.length).trim();
+      return uid.isNotEmpty ? uid : null;
+    }
+    return null;
+  }
+
   QrisPayload copyWith({
     int? amount,
     bool clearAmount = false,
@@ -136,7 +150,12 @@ class QrisPayload {
   /// Membaca & memvalidasi string QRIS. Melempar [QrisFormatException]
   /// bila format, checksum, mata uang, atau negara tidak sesuai.
   factory QrisPayload.parse(String raw) {
-    final data = raw.trim();
+    var data = raw.trim().replaceAll(RegExp(r'\s+'), '');
+    // Jika pengguna menempelkan teks yang memiliki awalan sebelum '000201', ambil mulai dari '000201'.
+    final startIdx = data.indexOf('000201');
+    if (startIdx > 0) {
+      data = data.substring(startIdx);
+    }
     if (data.length < 24 || !data.startsWith('000201')) {
       throw const QrisFormatException(
         'QR bukan format QRIS yang valid.',
