@@ -7,6 +7,8 @@ import '../dummy/dummy_data.dart';
 import '../models/qris_model.dart';
 import '../models/transaction_model.dart';
 import '../models/wallet_model.dart';
+import 'account_service.dart';
+import 'auth_service.dart';
 import 'midtrans_service.dart';
 import 'qris_service.dart';
 import 'transaction_service.dart';
@@ -152,15 +154,17 @@ class WalletService {
     return trx;
   }
 
-  /// Proses Pembayaran Scan QRIS Merchant.
+  /// Proses Pembayaran Scan QRIS Merchant atau Transfer QRIS Antar Pengguna FinPay.
   ///
-  /// [nmid] & [merchantCity] opsional agar pemanggil lama tetap kompatibel.
+  /// [nmid], [merchantCity], dan [recipientUserId] opsional agar pemanggil lama tetap kompatibel.
   Future<TransactionModel> payWithQris({
     required String merchantName,
     required int amount,
     required String timeFormatted,
     String? nmid,
     String? merchantCity,
+    String? recipientUserId,
+    bool isPeerTransfer = false,
     int adminFee = 0,
   }) async {
     if (amount <= 0) {
@@ -173,6 +177,8 @@ class WalletService {
 
     await updateBalance(cashDelta: -total);
 
+    final isUserTransfer = isPeerTransfer ||
+        (recipientUserId != null && recipientUserId.trim().isNotEmpty);
     final referenceNumber =
         'FPX-QR${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
     final location = (merchantCity == null || merchantCity.isEmpty)
@@ -181,9 +187,11 @@ class WalletService {
     final nmidNote = (nmid == null || nmid.isEmpty) ? '' : ' • NMID $nmid';
     final trx = TransactionModel(
       userId: FirebaseFirestoreConfig.defaultUserId,
-      title: 'Belanja QRIS $merchantName',
+      title: isUserTransfer
+          ? 'Transfer QRIS ke $merchantName'
+          : 'Belanja QRIS $merchantName',
       dateTime: 'Hari Ini, $timeFormatted',
-      channel: 'QRIS Pay',
+      channel: isUserTransfer ? 'QRIS Transfer' : 'QRIS Pay',
       amount: -total,
       icon: Icons.qr_code_scanner_rounded,
       type: TransactionType.expense,
@@ -191,11 +199,128 @@ class WalletService {
       category: 'Pembayaran QRIS',
       adminFee: adminFee,
       dateGroup: 'Hari Ini',
-      note: 'Pembayaran QRIS di $merchantName$location$nmidNote',
+      note: isUserTransfer
+          ? 'Transfer QRIS antar pengguna FinPay ke $merchantName$nmidNote'
+          : 'Pembayaran QRIS di $merchantName$location$nmidNote',
     );
 
     await TransactionService.instance.addTransaction(trx);
+
+    // Jika QRIS adalah milik pengguna FinPay lain (contoh: Reza scan QRIS Ali),
+    // kreditkan saldo penerima & catat mutasi masuk untuk akun penerima.
+    if (isUserTransfer &&
+        recipientUserId != null &&
+        recipientUserId.trim().isNotEmpty) {
+      await _creditRecipientForPeerQris(
+        recipientUserId: recipientUserId.trim(),
+        recipientName: merchantName,
+        senderName: AccountService.instance.currentUser.fullName,
+        amount: amount,
+        timeFormatted: timeFormatted,
+        baseReferenceNumber: referenceNumber,
+      );
+    }
+
     return trx;
+  }
+
+  Future<void> _creditRecipientForPeerQris({
+    required String recipientUserId,
+    required String recipientName,
+    required String senderName,
+    required int amount,
+    required String timeFormatted,
+    required String baseReferenceNumber,
+  }) async {
+    final incomingRef = '$baseReferenceNumber-IN';
+    final incomingTrx = TransactionModel(
+      userId: recipientUserId,
+      title: 'Terima QRIS dari $senderName',
+      dateTime: 'Hari Ini, $timeFormatted',
+      channel: 'QRIS Terima',
+      amount: amount,
+      icon: Icons.qr_code_2_rounded,
+      type: TransactionType.income,
+      referenceNumber: incomingRef,
+      category: 'Terima QRIS',
+      dateGroup: 'Hari Ini',
+      note: 'Transfer masuk via Scan QRIS FinPay dari $senderName',
+    );
+
+    AuthService.instance.creditPeerUserSession(
+      recipientUserId: recipientUserId,
+      recipientName: recipientName,
+      amount: amount,
+      incomingTransaction: incomingTrx,
+    );
+
+    if (!FirebaseFirestoreConfig.isConfigured) return;
+
+    try {
+      // 1. Ambil saldo penerima saat ini di Firestore (jika ada), lalu tambahkan nominal transfer
+      int currentRecipientCash =
+          recipientUserId == 'finpay_user_01' ? 12450000 : 1500000;
+      int currentRecipientSaving =
+          recipientUserId == 'finpay_user_01' ? 2400000 : 0;
+
+      final walletUrl = Uri.parse(
+        '${FirebaseFirestoreConfig.baseUrl}/wallets/$recipientUserId',
+      );
+      final getResp =
+          await http.get(walletUrl).timeout(const Duration(seconds: 5));
+      if (getResp.statusCode == 200) {
+        final decoded = jsonDecode(getResp.body) as Map<String, dynamic>;
+        final fields = decoded['fields'] as Map<String, dynamic>?;
+        if (fields != null) {
+          currentRecipientCash = int.tryParse(
+                (fields['cashBalance'] as Map<String, dynamic>?)?['integerValue']
+                        ?.toString() ??
+                    '',
+              ) ??
+              currentRecipientCash;
+          currentRecipientSaving = int.tryParse(
+                (fields['savingBalance']
+                            as Map<String, dynamic>?)?['integerValue']
+                        ?.toString() ??
+                    '',
+              ) ??
+              currentRecipientSaving;
+        }
+      }
+
+      final updatedRecipientWallet = WalletModel(
+        userId: recipientUserId,
+        cashBalance: currentRecipientCash + amount,
+        savingBalance: currentRecipientSaving,
+        updatedAt: DateTime.now(),
+      );
+      await _syncWalletToFirestore(updatedRecipientWallet);
+
+      // 2. Simpan dokumen transaksi masuk milik penerima ke koleksi `transactions`
+      final trxUrl = Uri.parse(
+        '${FirebaseFirestoreConfig.baseUrl}/transactions/$incomingRef',
+      );
+      final incomingMap = incomingTrx.toMap();
+      final firestoreFields = <String, dynamic>{};
+      incomingMap.forEach((key, value) {
+        if (value == null) return;
+        if (value is int) {
+          firestoreFields[key] = {'integerValue': value.toString()};
+        } else if (value is bool) {
+          firestoreFields[key] = {'booleanValue': value};
+        } else {
+          firestoreFields[key] = {'stringValue': value.toString()};
+        }
+      });
+
+      await http
+          .patch(
+            trxUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'fields': firestoreFields}),
+          )
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {}
   }
 
   /// Menerima uang masuk dari pembayaran ke QRIS milik pengguna.
