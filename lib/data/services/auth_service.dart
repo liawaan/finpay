@@ -187,8 +187,10 @@ class AuthService {
       pin: '123456',
     );
 
-    final baseCash = recipientUserId == 'finpay_user_01' ? 12450000 : 1500000;
-    final baseSaving = recipientUserId == 'finpay_user_01' ? 2400000 : 0;
+    final baseCash =
+        recipientUserId == 'finpay_user_01' ? 12350000 : 5450000;
+    final baseSaving =
+        recipientUserId == 'finpay_user_01' ? 2500000 : 1200000;
     final baseTransactions = recipientUserId == 'finpay_user_01'
         ? List<TransactionModel>.from(_initialRezaTransactions)
         : <TransactionModel>[];
@@ -216,6 +218,10 @@ class AuthService {
   Future<UserProfileModel> _restoreExistingUserSession(
     UserProfileModel baseProfile,
   ) async {
+    if (isLoggedIn && currentUser.userId != baseProfile.userId) {
+      _saveCurrentSessionSnapshot();
+    }
+
     var resolvedProfile = baseProfile;
     int? firestoreCash;
     int? firestoreSaving;
@@ -227,9 +233,14 @@ class AuthService {
     // 1. Coba tarik profil, saldo, riwayat, rekening, tabungan, & pinjaman terbaru dari Firebase Firestore jika terkoneksi
     if (FirebaseFirestoreConfig.isConfigured) {
       try {
-        resolvedProfile = await AccountService.instance.fetchUserProfile(
+        final fetchedProfile = await AccountService.instance.fetchUserProfile(
           baseProfile.userId,
+          fallback: baseProfile,
         );
+        if (fetchedProfile.userId == baseProfile.userId &&
+            fetchedProfile.fullName.trim().isNotEmpty) {
+          resolvedProfile = fetchedProfile;
+        }
 
         // Tarik dokumen wallets/{uid}
         final walletUrl = Uri.parse(
@@ -346,6 +357,23 @@ class AuthService {
             ? firestoreLoans
             : _initialRezaLoans,
       );
+    } else if (resolvedProfile.userId == 'finpay_user_ali') {
+      // Data awal akun Ali Akbar
+      DummyData.cashBalance = firestoreCash ?? 5450000;
+      DummyData.savingBalance = firestoreSaving ?? 1200000;
+      DummyData.totalBalance =
+          DummyData.cashBalance + DummyData.savingBalance;
+      DummyData.transactions
+        ..clear()
+        ..addAll(firestoreTransactions ?? []);
+      TransactionService.instance.transactionsNotifier.value =
+          List<TransactionModel>.from(DummyData.transactions);
+      AccountService.instance.linkedAccountsNotifier.value =
+          List<LinkedAccountModel>.from(firestoreAccounts ?? []);
+      WealthService.instance.savingGoalsNotifier.value =
+          List<SavingGoalModel>.from(firestoreGoals ?? []);
+      WealthService.instance.activeLoansNotifier.value =
+          List<LoanModel>.from(firestoreLoans ?? []);
     } else {
       // User dari koleksi `users` di Firestore yang belum ada di snapshot RAM lokal
       DummyData.cashBalance = firestoreCash ?? 0;
@@ -365,6 +393,8 @@ class AuthService {
           List<LoanModel>.from(firestoreLoans ?? []);
     }
 
+    // Terapkan identitas user aktif terlebih dahulu sebelum updateBalance agar wallets/{uid} sesuai
+    _applyActiveUser(resolvedProfile);
     await WalletService.instance.updateBalance();
     return resolvedProfile;
   }
