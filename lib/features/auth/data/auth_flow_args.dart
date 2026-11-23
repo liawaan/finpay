@@ -10,6 +10,7 @@ class AuthFlowArgs {
     this.name,
     this.nik,
     this.email,
+    this.password,
     this.address,
     this.birthDate,
     this.referral,
@@ -22,6 +23,7 @@ class AuthFlowArgs {
   final String? name;
   final String? nik;
   final String? email;
+  final String? password;
   final String? address;
   final DateTime? birthDate;
   final String? referral;

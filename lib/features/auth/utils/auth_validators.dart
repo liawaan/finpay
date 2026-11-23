@@ -33,6 +33,18 @@ abstract final class AuthValidators {
     return null;
   }
 
+  static String? password(String input) {
+    if (input.isEmpty) return 'Password wajib diisi';
+    if (input.length < 6) return 'Password minimal 6 karakter';
+    return null;
+  }
+
+  static String? confirmPassword(String password, String confirm) {
+    if (confirm.isEmpty) return 'Konfirmasi password wajib diisi';
+    if (confirm != password) return 'Konfirmasi password tidak cocok';
+    return null;
+  }
+
   static String? name(String input) {
     final value = input.trim();
     if (value.length < 3) return 'Isi nama lengkap sesuai KTP';

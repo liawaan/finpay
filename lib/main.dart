@@ -44,6 +44,23 @@ class FinPayApp extends StatelessWidget {
       // Alur utama: SplashPage -> Onboarding / Login & Register -> MainPage.
       // Saat user logout, kembali ke SplashPage -> Login / Register.
       initialRoute: '/',
+      onGenerateInitialRoutes: (initialRouteName) {
+        final routeName = initialRouteName.trim().isEmpty
+            ? '/'
+            : initialRouteName;
+        final WidgetBuilder builder = switch (routeName) {
+          '/admin' => (_) => const AdminDashboardPage(),
+          '/login' => (_) => const LoginPage(),
+          '/splash' => (_) => const SplashPage(),
+          _ => (_) => const _AuthGate(),
+        };
+        return [
+          MaterialPageRoute<void>(
+            settings: RouteSettings(name: routeName),
+            builder: builder,
+          ),
+        ];
+      },
       routes: {
         '/': (context) => const _AuthGate(),
         '/splash': (context) => const SplashPage(),

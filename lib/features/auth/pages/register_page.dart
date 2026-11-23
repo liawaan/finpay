@@ -37,6 +37,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _nik = TextEditingController();
   final TextEditingController _phone = TextEditingController();
   final TextEditingController _email = TextEditingController();
+  final TextEditingController _password = TextEditingController();
+  final TextEditingController _confirmPassword = TextEditingController();
   final TextEditingController _address = TextEditingController();
   final TextEditingController _birth = TextEditingController();
   final TextEditingController _referral = TextEditingController();
@@ -48,6 +50,8 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _nikError;
   String? _phoneError;
   String? _emailError;
+  String? _passwordError;
+  String? _confirmPasswordError;
   String? _addressError;
   String? _birthError;
   String? _referralError;
@@ -58,6 +62,8 @@ class _RegisterPageState extends State<RegisterPage> {
     _nik.dispose();
     _phone.dispose();
     _email.dispose();
+    _password.dispose();
+    _confirmPassword.dispose();
     _address.dispose();
     _birth.dispose();
     _referral.dispose();
@@ -91,6 +97,11 @@ class _RegisterPageState extends State<RegisterPage> {
         cleanNik.length != 16 ? 'NIK KTP wajib diisi 16 digit angka.' : null;
     var phoneError = AuthValidators.phone(_phone.text);
     final emailError = AuthValidators.email(_email.text);
+    final passwordError = AuthValidators.password(_password.text);
+    final confirmPasswordError = AuthValidators.confirmPassword(
+      _password.text,
+      _confirmPassword.text,
+    );
     final addressError = _address.text.trim().isEmpty
         ? 'Alamat / lokasi tempat tinggal wajib diisi.'
         : null;
@@ -106,6 +117,8 @@ class _RegisterPageState extends State<RegisterPage> {
       _nikError = nikError;
       _phoneError = phoneError;
       _emailError = emailError;
+      _passwordError = passwordError;
+      _confirmPasswordError = confirmPasswordError;
       _addressError = addressError;
       _birthError = birthError;
       _referralError = referralError;
@@ -115,6 +128,8 @@ class _RegisterPageState extends State<RegisterPage> {
         nikError == null &&
         phoneError == null &&
         emailError == null &&
+        passwordError == null &&
+        confirmPasswordError == null &&
         addressError == null &&
         birthError == null &&
         referralError == null;
@@ -133,6 +148,7 @@ class _RegisterPageState extends State<RegisterPage> {
             name: _name.text.trim(),
             nik: _nik.text.replaceAll(RegExp(r'\D'), ''),
             email: _email.text.trim(),
+            password: _password.text,
             address: _address.text.trim(),
             birthDate: _birthDate,
             referral: referral.isEmpty ? null : referral,
@@ -201,6 +217,26 @@ class _RegisterPageState extends State<RegisterPage> {
           keyboardType: TextInputType.emailAddress,
           errorText: _emailError,
           textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AuthTextField(
+          label: 'Buat Password',
+          hint: 'Minimal 6 karakter',
+          controller: _password,
+          obscure: true,
+          errorText: _passwordError,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() => _passwordError = null),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AuthTextField(
+          label: 'Konfirmasi Password',
+          hint: 'Ulangi password',
+          controller: _confirmPassword,
+          obscure: true,
+          errorText: _confirmPasswordError,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() => _confirmPasswordError = null),
         ),
         const SizedBox(height: AppSpacing.md),
         AuthTextField(

@@ -123,7 +123,9 @@ class _CreatePinPageState extends State<CreatePinPage> {
           address: args.address,
           email: args.email ?? '',
           phoneNumber: '0${args.phone}',
-          password: _firstPin,
+          password: (args.password != null && args.password!.isNotEmpty)
+              ? args.password!
+              : _firstPin,
           pin: _firstPin,
           usedReferralCode: args.referral,
           initialCash: 0,

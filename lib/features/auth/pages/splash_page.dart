@@ -44,6 +44,7 @@ class _SplashPageState extends State<SplashPage> {
 
   void _goNext() {
     if (!mounted) return;
+    if (ModalRoute.of(context)?.isCurrent != true) return;
     Navigator.of(context).pushReplacement(authRoute<void>(_target()));
   }
 
