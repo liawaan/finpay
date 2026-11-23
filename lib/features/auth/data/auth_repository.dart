@@ -131,13 +131,20 @@ class InMemoryAuthRepository implements AuthRepository {
       : _clock = clock ?? DateTime.now {
     // Akun demo supaya fitur login bisa dicoba tanpa daftar dulu.
     // PIN-nya sama dengan "PIN lama" di Akun > Ubah PIN.
-    const demo = Account(
+    const demoReza = Account(
       name: 'Reza Pratama',
       phone: '81234567890',
       email: 'reza.pratama@email.com',
       pin: '123456',
     );
-    _accounts[demo.phone] = demo;
+    const demoAli = Account(
+      name: 'Ali Akbar',
+      phone: '81388997766',
+      email: 'ali.akbar@email.com',
+      pin: '123456',
+    );
+    _accounts[demoReza.phone] = demoReza;
+    _accounts[demoAli.phone] = demoAli;
   }
 
   static const int maxAttempts = 5;
