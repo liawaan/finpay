@@ -11,7 +11,7 @@ import '../models/transaction_model.dart';
 /// Isi [projectId] dengan Project ID dari Firebase Console kamu
 /// (contoh: `'finpay-kelompok6'`).
 abstract final class FirebaseFirestoreConfig {
-  static String projectId = 'finpay-app-4026a';
+  static String projectId = 'finpay-app-v2';
   static String defaultUserId = 'finpay_user_01';
 
   static bool get isConfigured => projectId.trim().isNotEmpty;

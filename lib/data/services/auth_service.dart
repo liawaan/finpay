@@ -861,6 +861,7 @@ class AuthService {
           cleanBirthDate.isNotEmpty ? cleanBirthDate : '1 Januari 2000',
       address: cleanAddress.isNotEmpty ? cleanAddress : 'Indonesia',
       pin: pin.trim(),
+      kycStatus: 'Menunggu Verifikasi',
       finPoin: initialFinPoin,
       membership: UserProfileModel.resolveMembershipTier(initialFinPoin),
       referralCode: 'FINPAY-$codeName${now.year.toString().substring(2)}',
@@ -948,6 +949,60 @@ class AuthService {
       updatedAt: DateTime.now(),
     );
     _updateCurrentUserState(updated);
+    await AccountService.instance.syncUserProfileToFirestore(updated);
+    return updated;
+  }
+
+  /// Memperbarui status verifikasi identitas KTP (KYC) untuk user tertentu (dipanggil dari Dashboard Admin)
+  /// dan menyinkronkannya langsung ke dokumen `users/{userId}` di Firebase Firestore.
+  Future<UserProfileModel?> updateKycStatusForUser({
+    required String userId,
+    required String status,
+    UserProfileModel? fallbackProfile,
+  }) async {
+    UserProfileModel? target;
+    if (currentUser.userId == userId) {
+      target = currentUser;
+    } else {
+      for (final entry in _localUsers.values) {
+        if (entry.profile.userId == userId) {
+          target = entry.profile;
+          break;
+        }
+      }
+      target ??= fallbackProfile;
+      if (target == null) {
+        final fetched = await AccountService.instance.fetchUserProfile(userId);
+        if (fetched.userId == userId && fetched.fullName.trim().isNotEmpty) {
+          target = fetched;
+        }
+      }
+    }
+    if (target == null) return null;
+
+    final updated = target.copyWith(
+      kycStatus: status,
+      membership:
+          status == 'Terverifikasi' ? 'FinPay Premier' : target.membership,
+      maxDailyLimit: status == 'Terverifikasi' ? 50000000 : target.maxDailyLimit,
+      updatedAt: DateTime.now(),
+    );
+
+    final emailKey = updated.email.trim().toLowerCase();
+    if (emailKey.isNotEmpty && _localUsers.containsKey(emailKey)) {
+      _localUsers[emailKey] = (
+        password: _localUsers[emailKey]!.password,
+        profile: updated,
+      );
+    }
+    final snap = _userSnapshots[updated.userId];
+    if (snap != null) {
+      snap.profile = updated;
+    }
+    if (currentUser.userId == updated.userId) {
+      _updateCurrentUserState(updated);
+    }
+
     await AccountService.instance.syncUserProfileToFirestore(updated);
     return updated;
   }

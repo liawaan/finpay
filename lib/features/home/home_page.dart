@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -10,6 +12,7 @@ import '../../data/services/account_service.dart';
 import '../../data/services/transaction_service.dart';
 import '../../data/services/wallet_service.dart';
 import '../../data/services/wealth_service.dart';
+import '../account/pages/identity_page.dart';
 import '../account/widgets/redeem_poin_sheet.dart';
 import '../services/service_navigation_helper.dart';
 import 'widgets/balance_card.dart';
@@ -33,10 +36,46 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  static final Set<String> _dismissedKycNotifKeys = <String>{};
+  String? _scheduledAutoHideKey;
+  Timer? _kycNotifTimer;
+
   @override
   void initState() {
     super.initState();
     WalletService.instance.updateBalance();
+    final uid = AccountService.instance.currentUser.userId;
+    if (uid.trim().isNotEmpty) {
+      AccountService.instance.fetchUserProfile(
+        uid,
+        fallback: AccountService.instance.currentUser,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _kycNotifTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleAutoHideKycBanner(String bannerKey) {
+    if (_scheduledAutoHideKey == bannerKey ||
+        _dismissedKycNotifKeys.contains(bannerKey)) {
+      return;
+    }
+    _scheduledAutoHideKey = bannerKey;
+    _kycNotifTimer?.cancel();
+    _kycNotifTimer = Timer(const Duration(seconds: 6), () {
+      _dismissedKycNotifKeys.add(bannerKey);
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _dismissKycBanner(String bannerKey) {
+    _kycNotifTimer?.cancel();
+    _dismissedKycNotifKeys.add(bannerKey);
+    setState(() {});
   }
 
   void _refresh() {
@@ -99,11 +138,152 @@ class _HomePageState extends State<HomePage> {
       ValueListenableBuilder<UserProfileModel>(
         valueListenable: AccountService.instance.userNotifier,
         builder: (context, user, _) {
-          return GreetingSection(
-            userName: user.fullName,
-            membership: user.membership,
-            points: user.finPoin,
-            onMembershipTap: () => showRedeemPoinSheet(context),
+          final kycBannerKey = '${user.userId}:${user.kycStatus}';
+          final showKycNotif = user.userId.isNotEmpty &&
+              !_dismissedKycNotifKeys.contains(kycBannerKey);
+          if (showKycNotif) {
+            _scheduleAutoHideKycBanner(kycBannerKey);
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GreetingSection(
+                userName: user.fullName,
+                membership: user.membership,
+                points: user.finPoin,
+                onMembershipTap: () => showRedeemPoinSheet(context),
+              ),
+              if (showKycNotif) ...[
+                const SizedBox(height: AppSpacing.md),
+                if (!user.isKycVerified)
+                  Builder(
+                    builder: (_) {
+                      final lowerStatus = user.kycStatus.toLowerCase();
+                      final isRejected =
+                          lowerStatus.contains('upload ulang') ||
+                              lowerStatus.contains('ditolak');
+                      final bg = isRejected
+                          ? AppColors.dangerLight
+                          : AppColors.goldLight;
+                      final fg = isRejected
+                          ? AppColors.danger
+                          : const Color(0xFF92400E);
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push<void>(
+                            MaterialPageRoute(
+                              builder: (_) => const IdentityVerificationPage(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: bg,
+                            borderRadius: AppRadius.lgAll,
+                            border: Border.all(
+                              color: fg.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isRejected
+                                    ? Icons.error_outline_rounded
+                                    : Icons.hourglass_top_rounded,
+                                color: fg,
+                                size: 22,
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isRejected
+                                          ? 'KYC ditolak — Wajib isi ulang NIK'
+                                          : 'Data NIK dalam tahap verifikasi',
+                                      style: AppTextStyles.label.copyWith(
+                                        color: fg,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    Text(
+                                      isRejected
+                                          ? 'Ketuk di sini untuk memasukkan ulang 16 digit NIK kamu.'
+                                          : 'Menunggu persetujuan Admin FinPay. Ketuk untuk lihat status.',
+                                      style: AppTextStyles.caption.copyWith(
+                                        color: fg,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () =>
+                                    _dismissKycBanner(kycBannerKey),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  size: 18,
+                                  color: fg,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.successLight,
+                      borderRadius: AppRadius.mdAll,
+                      border: Border.all(
+                        color: AppColors.success.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.verified_rounded,
+                          color: AppColors.success,
+                          size: 18,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            'NIK telah terverifikasi',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.success,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => _dismissKycBanner(kycBannerKey),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            size: 18,
+                            color: AppColors.success,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ],
           );
         },
       ),

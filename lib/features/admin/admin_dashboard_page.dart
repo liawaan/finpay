@@ -79,7 +79,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         case 5:
           final fetchedUsers =
               await AccountService.instance.fetchAllUsersFromFirestore();
-          if (fetchedUsers.isNotEmpty) _firestoreUsers = fetchedUsers;
+          if (fetchedUsers.isNotEmpty) {
+            _firestoreUsers = fetchedUsers;
+            _kycOverrides.clear();
+          }
         case 3:
           await SupportChatService.instance.fetchMessagesFromFirebase();
         case 4:
@@ -465,7 +468,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  'Terhubung langsung ke database Firebase Firestore: finpay-app-4026a',
+                  'Terhubung langsung ke database Firebase Firestore: ${FirebaseFirestoreConfig.projectId}',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textSecondary,
                   ),
@@ -1597,30 +1600,43 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     required String userId,
     required bool approve,
   }) async {
-    final newStatus = approve ? 'Terverifikasi' : 'Perlu Upload Ulang';
-    final idx = _userList.indexWhere((u) => u['id'] == userId);
-    String userName = 'Pengguna';
-    if (idx >= 0) {
-      userName = _userList[idx]['name'] as String;
-      _userList[idx]['kycStatus'] = newStatus;
-      if (approve) {
-        _userList[idx]['tier'] = 'FinPay Premier';
-      }
-    }
+    final newStatus = approve ? 'Terverifikasi' : 'Ditolak (Isi Ulang NIK)';
+    final matchedProfile = _firestoreUsers
+        .where((u) => u.userId == userId)
+        .firstOrNull;
+    final matchedEntry = _mergedUserList
+        .where((u) => u['id'] == userId)
+        .firstOrNull;
+    final userName = matchedProfile?.fullName ??
+        (matchedEntry?['name']?.toString() ?? 'Pengguna');
 
-    if (AccountService.instance.currentUser.userId == userId) {
-      userName = AccountService.instance.currentUser.fullName;
-      await AuthService.instance.updateKycStatus(status: newStatus);
+    setState(() {
+      _kycOverrides[userId] = newStatus;
+    });
+
+    final updated = await AuthService.instance.updateKycStatusForUser(
+      userId: userId,
+      status: newStatus,
+      fallbackProfile: matchedProfile,
+    );
+    if (updated != null) {
+      final idx = _firestoreUsers.indexWhere((u) => u.userId == userId);
+      if (idx >= 0) {
+        final nextUsers = List<UserProfileModel>.from(_firestoreUsers);
+        nextUsers[idx] = updated;
+        _firestoreUsers = nextUsers;
+      }
     }
 
     if (!mounted) return;
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        backgroundColor: approve ? AppColors.success : AppColors.danger,
         content: Text(
           approve
-              ? 'KYC $userName disetujui (Upgrade ke FinPay Premier).'
-              : 'Permohonan KYC $userName ditolak.',
+              ? 'KYC $userName disetujui (NIK telah terverifikasi & disimpan ke Firebase).'
+              : 'KYC $userName ditolak. User wajib mengisi ulang data NIK.',
         ),
       ),
     );
@@ -1670,7 +1686,20 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     final uid = u['id'] as String;
                     final status = u['kycStatus'] as String;
                     final isVerified = status == 'Terverifikasi';
-                    final nik = (u['nik'] as String?) ?? '3171029102910002';
+                    final isRejected =
+                        status.toLowerCase().contains('ditolak') ||
+                            status.toLowerCase().contains('upload ulang');
+                    final nik = (u['nik'] as String?) ?? '-';
+                    final badgeBg = isVerified
+                        ? AppColors.successLight
+                        : (isRejected
+                            ? AppColors.dangerLight
+                            : AppColors.goldLight);
+                    final badgeFg = isVerified
+                        ? AppColors.success
+                        : (isRejected
+                            ? AppColors.danger
+                            : const Color(0xFFB45309));
 
                     return Card(
                       elevation: 0,
@@ -1686,18 +1715,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                               width: 64,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: isVerified
-                                    ? AppColors.successLight
-                                    : AppColors.primaryLight,
+                                color: badgeBg,
                                 borderRadius: AppRadius.smAll,
                               ),
                               child: Icon(
                                 isVerified
                                     ? Icons.verified_user_rounded
-                                    : Icons.badge_rounded,
-                                color: isVerified
-                                    ? AppColors.success
-                                    : AppColors.primary,
+                                    : (isRejected
+                                        ? Icons.gpp_bad_rounded
+                                        : Icons.badge_rounded),
+                                color: badgeFg,
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -1714,12 +1741,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                       const SizedBox(width: 8),
                                       PillBadge(
                                         label: status,
-                                        backgroundColor: isVerified
-                                            ? AppColors.successLight
-                                            : AppColors.goldLight,
-                                        foregroundColor: isVerified
-                                            ? AppColors.success
-                                            : const Color(0xFFB45309),
+                                        backgroundColor: badgeBg,
+                                        foregroundColor: badgeFg,
                                       ),
                                     ],
                                   ),
@@ -1751,20 +1774,53 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              OutlinedButton(
-                                onPressed: () => _handleKycDecision(
-                                  userId: uid,
-                                  approve: false,
+                              OutlinedButton.icon(
+                                onPressed: isRejected
+                                    ? null
+                                    : () => _handleKycDecision(
+                                          userId: uid,
+                                          approve: false,
+                                        ),
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  size: 16,
                                 ),
-                                child: const Text('Tolak'),
+                                label: Text(isRejected ? 'Ditolak' : 'Tolak'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.danger,
+                                  side: BorderSide(
+                                    color: isRejected
+                                        ? AppColors.border
+                                        : AppColors.danger,
+                                  ),
+                                ),
                               ),
-                            ] else
+                            ] else ...[
                               const PillBadge(
                                 label: 'KYC Disetujui',
                                 leadingIcon: Icons.check_circle_rounded,
                                 backgroundColor: AppColors.successLight,
                                 foregroundColor: AppColors.success,
                               ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: () => _handleKycDecision(
+                                  userId: uid,
+                                  approve: false,
+                                ),
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  size: 16,
+                                ),
+                                label: const Text('Tolak / Cabut'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.danger,
+                                  side: const BorderSide(
+                                    color: AppColors.danger,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
