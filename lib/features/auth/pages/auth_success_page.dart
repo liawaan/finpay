@@ -20,7 +20,9 @@ class AuthSuccessPage extends StatelessWidget {
 
   final AuthFlowArgs args;
 
-  bool get _isReset => args.purpose == AuthPurpose.resetPin;
+  bool get _isResetPin => args.purpose == AuthPurpose.resetPin;
+  bool get _isResetPassword => args.purpose == AuthPurpose.resetPassword;
+  bool get _isReset => _isResetPin || _isResetPassword;
 
   String get _firstName {
     final parts = (args.name ?? '').trim().split(RegExp(r'\s+'));
@@ -102,15 +104,19 @@ class AuthSuccessPage extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
           Text(
-            _isReset ? 'PIN berhasil diubah!' : 'Akun berhasil dibuat!',
+            _isResetPassword
+                ? 'Password berhasil diubah!'
+                : (_isResetPin ? 'PIN berhasil diubah!' : 'Akun berhasil dibuat!'),
             textAlign: TextAlign.center,
             style: AppTextStyles.displayMedium,
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            _isReset
-                ? 'PIN barumu sudah aktif. Silakan masuk dengan PIN tersebut.'
-                : 'Selamat datang di FinPay, $_firstName. Yuk mulai atur keuanganmu.',
+            _isResetPassword
+                ? 'Password barumu sudah aktif. Silakan masuk dengan password tersebut.'
+                : (_isResetPin
+                    ? 'PIN barumu sudah aktif. Silakan masuk dengan PIN tersebut.'
+                    : 'Selamat datang di FinPay, $_firstName. Yuk mulai atur keuanganmu.'),
             textAlign: TextAlign.center,
             style: AppTextStyles.body
                 .copyWith(color: AppColors.textSecondary, height: 1.5),

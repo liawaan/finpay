@@ -1,5 +1,5 @@
-/// Tujuan alur verifikasi: daftar akun baru atau pemulihan PIN.
-enum AuthPurpose { register, resetPin }
+/// Tujuan alur verifikasi: daftar akun baru, pemulihan PIN, atau pemulihan Password.
+enum AuthPurpose { register, resetPin, resetPassword }
 
 /// Data yang dibawa antar halaman dalam satu alur (data diri -> OTP ->
 /// buat PIN -> sukses).

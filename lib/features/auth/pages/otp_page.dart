@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../data/services/auth_service.dart';
 import '../auth_config.dart';
 import '../data/auth_flow_args.dart';
 import '../data/auth_repository.dart';
@@ -14,6 +15,7 @@ import '../widgets/auth_hero_scaffold.dart';
 import '../widgets/pin_pad.dart';
 import '../widgets/shake.dart';
 import 'create_pin_page.dart';
+import 'reset_password_page.dart';
 
 enum _Channel { sms, whatsapp }
 
@@ -45,7 +47,9 @@ class _OtpPageState extends State<OtpPage> {
   Timer? _timer;
 
   bool get _blocked => _wrong >= _maxWrong;
-  bool get _isReset => widget.args.purpose == AuthPurpose.resetPin;
+  bool get _isResetPin => widget.args.purpose == AuthPurpose.resetPin;
+  bool get _isResetPassword => widget.args.purpose == AuthPurpose.resetPassword;
+  bool get _isReset => _isResetPin || _isResetPassword;
 
   @override
   void initState() {
@@ -105,7 +109,7 @@ class _OtpPageState extends State<OtpPage> {
     setState(() => _code = _code.substring(0, _code.length - 1));
   }
 
-  void _verify() {
+  Future<void> _verify() async {
     if (_code != AuthConfig.demoOtp) {
       HapticFeedback.heavyImpact();
       final wrong = _wrong + 1;
@@ -120,15 +124,27 @@ class _OtpPageState extends State<OtpPage> {
       return;
     }
 
-    // Pemulihan PIN: setelah OTP terbukti benar (pengguna memegang nomor
-    // tersebut), baru aman memberi tahu kalau nomornya tidak terdaftar.
-    if (_isReset && !authRepository.phoneExists(widget.args.phone)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nomor ini belum terdaftar. Silakan daftar dulu.'),
-        ),
+    // Pemulihan akun: setelah OTP terbukti benar, cek apakah nomor terdaftar.
+    if (_isReset) {
+      final exists = authRepository.phoneExists(widget.args.phone) ||
+          await AuthService.instance.hasAccountWithPhone(widget.args.phone);
+      if (!mounted) return;
+      if (!exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nomor ini belum terdaftar. Silakan daftar dulu.'),
+          ),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    if (_isResetPassword) {
+      Navigator.of(context).push(
+        authRoute<void>(ResetPasswordPage(args: widget.args)),
       );
-      Navigator.of(context).popUntil((route) => route.isFirst);
       return;
     }
 

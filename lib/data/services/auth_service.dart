@@ -606,6 +606,57 @@ class AuthService {
     await AccountService.instance.syncUserProfileToFirestore(updated);
   }
 
+  /// Mengecek apakah nomor HP sudah terdaftar (lokal maupun Firestore).
+  Future<bool> hasAccountWithPhone(String phone) async {
+    final normPhone = _normalizePhoneDigits(phone);
+    if (normPhone.isEmpty) return false;
+    for (final entry in _localUsers.values) {
+      if (_normalizePhoneDigits(entry.profile.phoneNumber) == normPhone) {
+        return true;
+      }
+    }
+    final remote =
+        await AccountService.instance.findUserByPhoneFromFirestore(normPhone);
+    return remote != null;
+  }
+
+  /// Sinkronisasi pemulihan Password (Lupa Password) ke profil `users` di Firestore.
+  Future<bool> resetPasswordByPhone({
+    required String phone,
+    required String newPassword,
+  }) async {
+    final normPhone = _normalizePhoneDigits(phone);
+    UserProfileModel? target;
+    for (final entry in _localUsers.values) {
+      if (_normalizePhoneDigits(entry.profile.phoneNumber) == normPhone) {
+        target = entry.profile;
+        break;
+      }
+    }
+    target ??=
+        await AccountService.instance.findUserByPhoneFromFirestore(normPhone);
+    if (target == null) return false;
+
+    final updated = target.copyWith(
+      password: newPassword,
+      updatedAt: DateTime.now(),
+    );
+    final emailKey = updated.email.toLowerCase();
+    _localUsers[emailKey] = (
+      password: newPassword,
+      profile: updated,
+    );
+    final snap = _userSnapshots[updated.userId];
+    if (snap != null) {
+      snap.profile = updated;
+    }
+    if (currentUser.userId == updated.userId) {
+      _updateCurrentUserState(updated);
+    }
+    await AccountService.instance.syncUserProfileToFirestore(updated);
+    return true;
+  }
+
   /// Registrasi pengguna baru:
   /// 1. Validasi seluruh data diri (Nama, NIK, Tanggal Lahir, Alamat/Lokasi, Email, HP, Password, PIN)
   /// 2. Validasi Kode Referral Teman (opsional): jika valid, beri +500 FinPoin untuk pengajak & pengguna baru

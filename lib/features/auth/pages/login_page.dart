@@ -17,7 +17,7 @@ import '../widgets/auth_hero_scaffold.dart';
 import '../widgets/auth_routes.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/shake.dart';
-import 'forgot_pin_page.dart';
+import 'forgot_password_page.dart';
 import 'register_page.dart';
 
 /// Login: tab Nomor HP / Email dengan Password saja.
@@ -222,12 +222,12 @@ class _LoginPageState extends State<LoginPage> {
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () => Navigator.of(context)
-                .push(authRoute<void>(const ForgotPinPage())),
+                .push(authRoute<void>(const ForgotPasswordPage())),
             style: TextButton.styleFrom(
               visualDensity: VisualDensity.compact,
             ),
             child: Text(
-              'Lupa PIN?',
+              'Lupa Password?',
               style: AppTextStyles.label.copyWith(color: AppColors.primary),
             ),
           ),
