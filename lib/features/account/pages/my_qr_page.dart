@@ -28,6 +28,12 @@ class _MyQrPageState extends State<MyQrPage> {
   int? _lockedAmount;
 
   @override
+  void initState() {
+    super.initState();
+    QrisService.instance.publishActiveUserQris();
+  }
+
+  @override
   void dispose() {
     _amountController.dispose();
     super.dispose();
@@ -44,6 +50,9 @@ class _MyQrPageState extends State<MyQrPage> {
         _amountController.clear();
       }
     });
+    if (!dynamicMode) {
+      QrisService.instance.publishActiveUserQris();
+    }
   }
 
   void _applyAmount() {
@@ -57,6 +66,7 @@ class _MyQrPageState extends State<MyQrPage> {
       QrisService.instance.validateAmount(amount);
       FocusScope.of(context).unfocus();
       setState(() => _lockedAmount = amount);
+      QrisService.instance.publishActiveUserQris(amount: amount);
     } on QrisFormatException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
@@ -64,10 +74,33 @@ class _MyQrPageState extends State<MyQrPage> {
     }
   }
 
-  void _copyQris() {
-    Clipboard.setData(ClipboardData(text: _payload.encode()));
+  Future<void> _copyQris() async {
+    await QrisService.instance.publishActiveUserQris(
+      amount: _isDynamic ? _lockedAmount : null,
+    );
+    await Clipboard.setData(ClipboardData(text: _payload.encode()));
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Kode QRIS disalin')),
+      const SnackBar(
+        content: Text(
+          'Kode QRIS disalin & siap dipindai oleh pengguna FinPay lainnya!',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareAndPublishQris() async {
+    final published = await QrisService.instance.publishActiveUserQris(
+      amount: _isDynamic ? _lockedAmount : null,
+    );
+    await Clipboard.setData(ClipboardData(text: published.qrisString));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'QRIS ${published.userName} dipublikasikan ke daftar Scan QRIS & disalin ke Clipboard!',
+        ),
+      ),
     );
   }
 
@@ -275,13 +308,7 @@ class _MyQrPageState extends State<MyQrPage> {
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: needsAmount
-                    ? null
-                    : () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Bagikan belum tersedia (demo)'),
-                          ),
-                        ),
+                onPressed: needsAmount ? null : _shareAndPublishQris,
                 icon: const Icon(Icons.ios_share_rounded, size: AppSizes.iconMd),
                 label: Text(
                   'Bagikan',
