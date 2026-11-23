@@ -328,13 +328,46 @@ class WealthService {
 
   // ==================== 1. TABUNGAN IMPIAN (`saving_goals`) ====================
 
+  /// Menghitung estimasi bulan & tahun tercapainya target menabung secara akurat
+  /// berdasarkan sisa dana yang dibutuhkan dibagi setoran rutin per bulan.
+  static String calculateSavingGoalEta({
+    required int currentAmount,
+    required int targetAmount,
+    required int monthlyDebit,
+    DateTime? now,
+  }) {
+    if (targetAmount <= 0 || currentAmount >= targetAmount) {
+      return 'Tercapai!';
+    }
+    final remaining = targetAmount - currentAmount;
+    final monthly = monthlyDebit > 0 ? monthlyDebit : 100000;
+    final monthsNeeded = (remaining / monthly).ceil();
+    final base = now ?? DateTime.now();
+    final targetDate = DateTime(base.year, base.month + monthsNeeded, 1);
+    const months = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+    return '${months[targetDate.month - 1]} ${targetDate.year}';
+  }
+
   /// Membuat target menabung baru dan menyimpannya ke koleksi `saving_goals` di Firestore.
   Future<SavingGoalModel> createSavingGoal({
     required String title,
     required int targetAmount,
     int? monthlyDebit,
     String category = 'Impian',
-    String eta = 'Desember 2025',
+    String? eta,
   }) async {
     final cleanTitle = title.trim();
     if (cleanTitle.isEmpty) {
@@ -345,6 +378,12 @@ class WealthService {
     }
 
     final suggestedMonthly = monthlyDebit ?? (targetAmount / 12).round();
+    final resolvedEta = eta ??
+        calculateSavingGoalEta(
+          currentAmount: 0,
+          targetAmount: targetAmount,
+          monthlyDebit: suggestedMonthly,
+        );
     final newGoal = SavingGoalModel(
       id: 'goal_${DateTime.now().millisecondsSinceEpoch}',
       userId: FirebaseFirestoreConfig.defaultUserId,
@@ -353,7 +392,7 @@ class WealthService {
       currentAmount: 0,
       targetAmount: targetAmount,
       monthlyDebit: suggestedMonthly,
-      eta: eta,
+      eta: resolvedEta,
       colorHex: 0xFF2563EB,
       createdAt: DateTime.now(),
     );
@@ -382,8 +421,14 @@ class WealthService {
       timeFormatted: timeFormatted,
     );
 
+    final newCurrent = goal.currentAmount + amount;
     final updatedGoal = goal.copyWith(
-      currentAmount: goal.currentAmount + amount,
+      currentAmount: newCurrent,
+      eta: calculateSavingGoalEta(
+        currentAmount: newCurrent,
+        targetAmount: goal.targetAmount,
+        monthlyDebit: goal.monthlyDebit,
+      ),
     );
     final updatedList = List<SavingGoalModel>.from(savingGoals);
     updatedList[index] = updatedGoal;
@@ -420,8 +465,14 @@ class WealthService {
       savingDelta: -amount,
     );
 
+    final newCurrent = goal.currentAmount - amount;
     final updatedGoal = goal.copyWith(
-      currentAmount: goal.currentAmount - amount,
+      currentAmount: newCurrent,
+      eta: calculateSavingGoalEta(
+        currentAmount: newCurrent,
+        targetAmount: goal.targetAmount,
+        monthlyDebit: goal.monthlyDebit,
+      ),
     );
     final updatedList = List<SavingGoalModel>.from(savingGoals);
     updatedList[index] = updatedGoal;

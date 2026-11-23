@@ -13,6 +13,7 @@ import '../../shared/dialogs/widgets/finpay_receipt_dialog.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/pill_badge.dart';
 import '../../shared/widgets/rounded_progress_bar.dart';
+import '../pay/widgets/qris_pin_sheet.dart';
 
 /// Halaman Penuh 3: Target Menabung terintegrasi [WealthService] & koleksi `saving_goals` (Bagian Tugas Pidi).
 class SavingsPage extends StatefulWidget {
@@ -24,6 +25,24 @@ class SavingsPage extends StatefulWidget {
 
 class _SavingsPageState extends State<SavingsPage> {
   Future<void> _setorTabungan(SavingGoalModel goal) async {
+    if (WalletService.instance.walletNotifier.value.cashBalance <
+        goal.monthlyDebit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Saldo FinPay Cash kamu tidak mencukupi untuk setor tabungan.'),
+        ),
+      );
+      return;
+    }
+
+    final pinVerified = await showQrisPinSheet(
+      context,
+      title: 'Masukkan PIN FinPay',
+      subtitle:
+          'Setor ${CurrencyFormatter.rupiah(goal.monthlyDebit)} ke "${goal.title}" (saldo cash langsung terpotong)',
+    );
+    if (!pinVerified || !mounted) return;
+
     final timeFormatted = TimeOfDay.now().format(context);
     try {
       final trx = await WealthService.instance.depositToGoal(
@@ -143,6 +162,14 @@ class _SavingsPageState extends State<SavingsPage> {
     );
 
     if (requestedAmount == null || requestedAmount <= 0 || !mounted) return;
+
+    final pinVerified = await showQrisPinSheet(
+      context,
+      title: 'Masukkan PIN FinPay',
+      subtitle:
+          'Konfirmasi penarikan ${CurrencyFormatter.rupiah(requestedAmount)} dari "${goal.title}" ke Saldo Cash',
+    );
+    if (!pinVerified || !mounted) return;
 
     final timeFormatted = TimeOfDay.now().format(context);
     try {
@@ -395,7 +422,7 @@ class _SavingsPageState extends State<SavingsPage> {
                                 color: Colors.white,
                               ),
                               label: const Text(
-                                '+ Target Baru',
+                                'Target Baru',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -467,7 +494,7 @@ class _GoalCardFull extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Setoran rutin: ${CurrencyFormatter.rupiah(goal.monthlyDebit)}/bulan • Estimasi: ${goal.eta}',
+            'Setoran rutin: ${CurrencyFormatter.rupiah(goal.monthlyDebit)}/bulan • Estimasi: ${WealthService.calculateSavingGoalEta(currentAmount: goal.currentAmount, targetAmount: goal.targetAmount, monthlyDebit: goal.monthlyDebit)}',
             style: AppTextStyles.caption,
           ),
           const SizedBox(height: AppSpacing.md),
@@ -520,7 +547,7 @@ class _GoalCardFull extends StatelessWidget {
                 onPressed: onSetorTap,
                 icon: const Icon(Icons.add, size: 14, color: Colors.white),
                 label: Text(
-                  '+ Setor ${CurrencyFormatter.rupiah(goal.monthlyDebit)}',
+                  'Setor ${CurrencyFormatter.rupiah(goal.monthlyDebit)}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
