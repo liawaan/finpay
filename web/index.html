@@ -31,6 +31,109 @@
 
   <title>finpay</title>
   <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js" defer></script>
+  <script>
+    (function () {
+      var offscreenCanvas = null;
+      var offscreenCtx = null;
+      var barcodeDetector = null;
+
+      if ('BarcodeDetector' in window) {
+        try {
+          barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code'] });
+        } catch (_) {}
+      }
+
+      function ensureCanvas(w, h) {
+        if (!offscreenCanvas) {
+          offscreenCanvas = document.createElement('canvas');
+          offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+        }
+        offscreenCanvas.width = w;
+        offscreenCanvas.height = h;
+        return offscreenCtx;
+      }
+
+      window.finpayScanVideoFrame = async function (videoEl) {
+        try {
+          if (!videoEl || videoEl.readyState < 2) return '';
+          var vw = videoEl.videoWidth || 0;
+          var vh = videoEl.videoHeight || 0;
+          if (vw <= 0 || vh <= 0) return '';
+
+          if (barcodeDetector) {
+            try {
+              var codes = await barcodeDetector.detect(videoEl);
+              if (codes && codes.length > 0 && codes[0].rawValue) {
+                return String(codes[0].rawValue);
+              }
+            } catch (_) {}
+          }
+
+          if (typeof window.jsQR === 'function') {
+            var scale = vw > 640 ? 640 / vw : 1;
+            var cw = Math.max(1, Math.floor(vw * scale));
+            var ch = Math.max(1, Math.floor(vh * scale));
+            var ctx = ensureCanvas(cw, ch);
+            ctx.drawImage(videoEl, 0, 0, cw, ch);
+            var imgData = ctx.getImageData(0, 0, cw, ch);
+            var qr = window.jsQR(imgData.data, cw, ch, {
+              inversionAttempts: 'attemptBoth'
+            });
+            if (qr && qr.data) {
+              return String(qr.data);
+            }
+          }
+        } catch (_) {}
+        return '';
+      };
+
+      window.finpayDecodeQrImageDataUrl = function (dataUrl) {
+        return new Promise(function (resolve) {
+          try {
+            var img = new Image();
+            img.onload = async function () {
+              try {
+                if (barcodeDetector) {
+                  try {
+                    var codes = await barcodeDetector.detect(img);
+                    if (codes && codes.length > 0 && codes[0].rawValue) {
+                      resolve(String(codes[0].rawValue));
+                      return;
+                    }
+                  } catch (_) {}
+                }
+
+                if (typeof window.jsQR === 'function') {
+                  var w = img.naturalWidth || img.width || 0;
+                  var h = img.naturalHeight || img.height || 0;
+                  if (w > 0 && h > 0) {
+                    var ctx = ensureCanvas(w, h);
+                    ctx.drawImage(img, 0, 0, w, h);
+                    var imgData = ctx.getImageData(0, 0, w, h);
+                    var qr = window.jsQR(imgData.data, w, h, {
+                      inversionAttempts: 'attemptBoth'
+                    });
+                    if (qr && qr.data) {
+                      resolve(String(qr.data));
+                      return;
+                    }
+                  }
+                }
+              } catch (_) {}
+              resolve('');
+            };
+            img.onerror = function () {
+              resolve('');
+            };
+            img.src = dataUrl;
+          } catch (_) {
+            resolve('');
+          }
+        });
+      };
+    })();
+  </script>
 </head>
 <body>
   <!--
