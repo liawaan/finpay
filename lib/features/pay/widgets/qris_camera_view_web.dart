@@ -1,5 +1,7 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
+import 'dart:async';
 import 'dart:html' as html;
+import 'dart:js_util' as js_util;
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
@@ -7,16 +9,19 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 
-/// Implementasi Live Camera WebRTC (`getUserMedia`) untuk Flutter Web (Chrome).
+/// Implementasi Live Camera WebRTC (`getUserMedia`) + Real-Time QRIS Decoder
+/// untuk Flutter Web (Chrome).
 Widget buildPlatformQrisCamera({
   required bool isActive,
   required bool isFlashOn,
   VoidCallback? onTapViewport,
+  ValueChanged<String>? onQrDetected,
 }) {
   return _WebQrisCameraFeed(
     isActive: isActive,
     isFlashOn: isFlashOn,
     onTapViewport: onTapViewport,
+    onQrDetected: onQrDetected,
   );
 }
 
@@ -25,11 +30,13 @@ class _WebQrisCameraFeed extends StatefulWidget {
     required this.isActive,
     required this.isFlashOn,
     this.onTapViewport,
+    this.onQrDetected,
   });
 
   final bool isActive;
   final bool isFlashOn;
   final VoidCallback? onTapViewport;
+  final ValueChanged<String>? onQrDetected;
 
   @override
   State<_WebQrisCameraFeed> createState() => _WebQrisCameraFeedState();
@@ -40,8 +47,12 @@ class _WebQrisCameraFeedState extends State<_WebQrisCameraFeed> {
   late final String _viewType;
   late final html.VideoElement _videoElement;
   html.MediaStream? _mediaStream;
+  Timer? _scanTimer;
   bool _hasStream = false;
   bool _isRequesting = false;
+  bool _isDecodingFrame = false;
+  DateTime? _lastDetectedAt;
+  String? _lastDetectedCode;
   String? _cameraError;
 
   @override
@@ -114,6 +125,8 @@ class _WebQrisCameraFeedState extends State<_WebQrisCameraFeed> {
       _videoElement.srcObject = stream;
       await _videoElement.play();
 
+      _startQrFrameLoop();
+
       if (mounted) {
         setState(() {
           _hasStream = true;
@@ -125,13 +138,59 @@ class _WebQrisCameraFeedState extends State<_WebQrisCameraFeed> {
         setState(() {
           _hasStream = false;
           _isRequesting = false;
-          _cameraError = 'Izin kamera belum aktif • Ketuk untuk aktifkan / pilih QRIS';
+          _cameraError =
+              'Izin kamera belum aktif • Ketuk untuk aktifkan / pilih QRIS';
         });
       }
     }
   }
 
+  void _startQrFrameLoop() {
+    _scanTimer?.cancel();
+    _scanTimer = Timer.periodic(
+      const Duration(milliseconds: 400),
+      (_) => _scanCurrentFrame(),
+    );
+  }
+
+  Future<void> _scanCurrentFrame() async {
+    if (!_hasStream ||
+        !widget.isActive ||
+        _isDecodingFrame ||
+        widget.onQrDetected == null) {
+      return;
+    }
+
+    _isDecodingFrame = true;
+    try {
+      if (!js_util.hasProperty(html.window, 'finpayScanVideoFrame')) return;
+      final promise = js_util.callMethod<Object>(
+        html.window,
+        'finpayScanVideoFrame',
+        [_videoElement],
+      );
+      final result = await js_util.promiseToFuture<Object?>(promise);
+      final raw = (result?.toString() ?? '').trim();
+      if (raw.isNotEmpty && raw.contains('000201')) {
+        final now = DateTime.now();
+        final recentlySame = _lastDetectedCode == raw &&
+            _lastDetectedAt != null &&
+            now.difference(_lastDetectedAt!).inSeconds < 4;
+        if (!recentlySame && mounted) {
+          _lastDetectedCode = raw;
+          _lastDetectedAt = now;
+          widget.onQrDetected?.call(raw);
+        }
+      }
+    } catch (_) {
+    } finally {
+      _isDecodingFrame = false;
+    }
+  }
+
   void _stopCamera() {
+    _scanTimer?.cancel();
+    _scanTimer = null;
     final stream = _mediaStream;
     _mediaStream = null;
     _videoElement.srcObject = null;
@@ -150,6 +209,8 @@ class _WebQrisCameraFeedState extends State<_WebQrisCameraFeed> {
 
   @override
   void dispose() {
+    _scanTimer?.cancel();
+    _scanTimer = null;
     final stream = _mediaStream;
     _mediaStream = null;
     _videoElement.srcObject = null;
@@ -194,8 +255,7 @@ class _WebQrisCameraFeedState extends State<_WebQrisCameraFeed> {
               ),
             ),
           ),
-          if (_hasStream)
-            HtmlElementView(viewType: _viewType),
+          if (_hasStream) HtmlElementView(viewType: _viewType),
           if (widget.isFlashOn)
             IgnorePointer(
               child: Container(

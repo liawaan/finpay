@@ -10,11 +10,13 @@ class QrisCameraView extends StatelessWidget {
     required this.isActive,
     required this.isFlashOn,
     this.onTapViewport,
+    this.onQrDetected,
   });
 
   final bool isActive;
   final bool isFlashOn;
   final VoidCallback? onTapViewport;
+  final ValueChanged<String>? onQrDetected;
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +24,7 @@ class QrisCameraView extends StatelessWidget {
       isActive: isActive,
       isFlashOn: isFlashOn,
       onTapViewport: onTapViewport,
+      onQrDetected: onQrDetected,
     );
   }
 }

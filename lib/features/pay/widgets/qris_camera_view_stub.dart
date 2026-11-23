@@ -5,6 +5,7 @@ Widget buildPlatformQrisCamera({
   required bool isActive,
   required bool isFlashOn,
   VoidCallback? onTapViewport,
+  ValueChanged<String>? onQrDetected,
 }) {
   return _SimulatedCameraFeed(
     isActive: isActive,
