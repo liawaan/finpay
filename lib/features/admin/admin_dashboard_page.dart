@@ -696,7 +696,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       controller: _searchTrxController,
                       decoration: InputDecoration(
                         hintText:
-                            'Cari Referensi (FPX-...), judul, atau kanal...',
+                            'Cari Ref (FPX-...), judul, nama user, email, no. HP, atau NIK...',
                         prefixIcon: const Icon(Icons.search_rounded),
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
@@ -722,9 +722,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       'Terima QRIS',
                       'Isi Saldo',
                       'Transfer',
+                      'Transfer Masuk',
                       'Pembayaran Merchant',
                       'Tarik Tunai',
-                      'Pinjaman',
                       'Tabungan',
                     ]
                         .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -767,6 +767,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     String? searchQuery,
   }) {
     var list = sourceList ?? TransactionService.instance.transactionsNotifier.value;
+    final usersById = <String, Map<String, dynamic>>{
+      for (final u in _mergedUserList) (u['id'] as String): u,
+    };
 
     if (filterCategory != null && filterCategory.isNotEmpty) {
       final fc = filterCategory.toLowerCase();
@@ -780,12 +783,23 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     }
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
-      final q = searchQuery.toLowerCase();
-      list = list.where((t) =>
-        t.referenceNumber.toLowerCase().contains(q) ||
-        t.title.toLowerCase().contains(q) ||
-        t.channel.toLowerCase().contains(q)
-      ).toList();
+      final q = searchQuery.trim().toLowerCase();
+      list = list.where((t) {
+        final u = usersById[t.userId];
+        final uName = (u?['name']?.toString() ?? '').toLowerCase();
+        final uEmail = (u?['email']?.toString() ?? '').toLowerCase();
+        final uPhone = (u?['phone']?.toString() ?? '').toLowerCase();
+        final uNik = (u?['nik']?.toString() ?? '').toLowerCase();
+        return t.referenceNumber.toLowerCase().contains(q) ||
+            t.title.toLowerCase().contains(q) ||
+            t.channel.toLowerCase().contains(q) ||
+            t.category.toLowerCase().contains(q) ||
+            t.userId.toLowerCase().contains(q) ||
+            uName.contains(q) ||
+            uEmail.contains(q) ||
+            uPhone.contains(q) ||
+            uNik.contains(q);
+      }).toList();
     }
 
     if (limit != null && list.length > limit) {
@@ -795,11 +809,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     return Table(
       columnWidths: const {
         0: FlexColumnWidth(2.0),
-        1: FlexColumnWidth(1.6),
-        2: FlexColumnWidth(1.5),
-        3: FlexColumnWidth(1.8),
-        4: FlexColumnWidth(1.2),
-        5: FlexColumnWidth(1.2),
+        1: FlexColumnWidth(2.0),
+        2: FlexColumnWidth(1.4),
+        3: FlexColumnWidth(1.3),
+        4: FlexColumnWidth(1.5),
+        5: FlexColumnWidth(1.1),
+        6: FlexColumnWidth(1.1),
       },
       border: TableBorder(
         horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
@@ -810,6 +825,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           decoration: BoxDecoration(color: Colors.grey.shade50),
           children: [
             _tableHeader('Judul & No. Referensi'),
+            _tableHeader('Pengguna (User)'),
             _tableHeader('Waktu Transaksi'),
             _tableHeader('Kanal / Metode'),
             _tableHeader('Nominal'),
@@ -827,9 +843,65 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(trx.title, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
-                    Text(trx.referenceNumber, style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                    Text(
+                      trx.title,
+                      style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      trx.referenceNumber,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                child: Builder(
+                  builder: (_) {
+                    final u = usersById[trx.userId];
+                    final name = (u?['name']?.toString() ?? '').trim();
+                    final phone = (u?['phone']?.toString() ?? '').trim();
+                    final email = (u?['email']?.toString() ?? '').trim();
+                    final nik = (u?['nik']?.toString() ?? '').trim();
+                    final contactLine = [
+                      if (phone.isNotEmpty && phone != '-') phone,
+                      if (email.isNotEmpty && email != '-') email,
+                    ].join(' • ');
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name.isNotEmpty ? name : trx.userId,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (contactLine.isNotEmpty)
+                          Text(
+                            contactLine,
+                            style: AppTextStyles.caption,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        if (nik.isNotEmpty && nik != '-')
+                          Text(
+                            'NIK: $nik',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textTertiary,
+                              fontSize: 11,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
               Padding(
