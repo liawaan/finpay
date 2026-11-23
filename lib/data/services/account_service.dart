@@ -306,8 +306,31 @@ class AccountService {
   }
 
   /// Mengambil dokumen profil dari koleksi `users/{uid}` di Firebase Firestore.
-  Future<UserProfileModel> fetchUserProfile(String userId) async {
-    if (!FirebaseFirestoreConfig.isConfigured) return currentUser;
+  ///
+  /// Jika dokumen belum ada di Firestore (404) atau sedang offline,
+  /// mengembalikan [fallback] agar tidak menimpa sesi user baru (misal Ali)
+  /// dengan profil `currentUser` sebelumnya (misal Reza).
+  Future<UserProfileModel> fetchUserProfile(
+    String userId, {
+    UserProfileModel? fallback,
+  }) async {
+    final safeFallback = fallback ??
+        (currentUser.userId == userId
+            ? currentUser
+            : UserProfileModel(
+                userId: userId,
+                fullName: userId == 'finpay_user_ali'
+                    ? 'Ali Akbar'
+                    : 'Pengguna FinPay',
+                email: userId == 'finpay_user_ali'
+                    ? 'ali.akbar@email.com'
+                    : '',
+                phoneNumber: userId == 'finpay_user_ali'
+                    ? '0813-8899-7766'
+                    : '',
+              ));
+
+    if (!FirebaseFirestoreConfig.isConfigured) return safeFallback;
 
     try {
       final url = Uri.parse('${FirebaseFirestoreConfig.baseUrl}/users/$userId');
@@ -322,13 +345,15 @@ class AccountService {
             fromFirestoreFields(fields),
             docId: userId,
           );
-          _applyProfileUpdate(loaded);
-          return loaded;
+          if (loaded.userId == userId && loaded.fullName.trim().isNotEmpty) {
+            _applyProfileUpdate(loaded);
+            return loaded;
+          }
         }
       }
     } catch (_) {}
 
-    return currentUser;
+    return safeFallback;
   }
 
   /// Mencari pengguna berdasarkan alamat email di koleksi `users` pada Firebase Firestore.
