@@ -356,6 +356,37 @@ class AccountService {
     return safeFallback;
   }
 
+  /// Mengambil seluruh daftar pengguna dari koleksi `users` pada Firebase Firestore.
+  Future<List<UserProfileModel>> fetchAllUsersFromFirestore() async {
+    if (!FirebaseFirestoreConfig.isConfigured) return const [];
+
+    try {
+      final url = Uri.parse('${FirebaseFirestoreConfig.baseUrl}/users');
+      final response = await http.get(url).timeout(const Duration(seconds: 6));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final docs = (decoded['documents'] as List<dynamic>?) ?? [];
+        final users = <UserProfileModel>[];
+        for (final doc in docs) {
+          final docMap = doc as Map<String, dynamic>;
+          final fields = docMap['fields'] as Map<String, dynamic>?;
+          if (fields == null) continue;
+
+          final parsedMap = fromFirestoreFields(fields);
+          final namePath = (docMap['name'] as String?) ?? '';
+          final docId = namePath.contains('/')
+              ? namePath.split('/').last
+              : (parsedMap['userId']?.toString() ?? '');
+          users.add(UserProfileModel.fromMap(parsedMap, docId: docId));
+        }
+        return users;
+      }
+    } catch (_) {}
+
+    return const [];
+  }
+
   /// Mencari pengguna berdasarkan alamat email di koleksi `users` pada Firebase Firestore.
   Future<UserProfileModel?> findUserByEmailFromFirestore(String email) async {
     if (!FirebaseFirestoreConfig.isConfigured) return null;

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../data/services/auth_service.dart';
 import '../data/auth_flow_args.dart';
 import '../data/auth_repository.dart';
 import '../utils/auth_validators.dart';
@@ -45,6 +46,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   DateTime? _birthDate;
   bool _agree = false;
+  bool _checking = false;
 
   String? _nameError;
   String? _nikError;
@@ -109,7 +111,7 @@ class _RegisterPageState extends State<RegisterPage> {
     final referralError = AuthValidators.referral(_referral.text);
 
     if (phoneError == null && authRepository.phoneExists(_phone.text)) {
-      phoneError = 'Nomor ini sudah terdaftar. Coba masuk.';
+      phoneError = 'NO.HP sudah terpakai';
     }
 
     setState(() {
@@ -135,19 +137,56 @@ class _RegisterPageState extends State<RegisterPage> {
         referralError == null;
   }
 
-  void _next() {
+  Future<void> _next() async {
+    if (_checking) return;
     if (!_validate()) return;
 
+    FocusScope.of(context).unfocus();
+    setState(() => _checking = true);
+
+    final cleanNik = _nik.text.replaceAll(RegExp(r'\D'), '');
+    final normPhone = AuthValidators.normalizePhone(_phone.text);
+    final cleanEmail = _email.text.trim();
+
+    final duplicate = await AuthService.instance.checkDuplicateRegistration(
+      nik: cleanNik,
+      phoneNumber: '0$normPhone',
+      email: cleanEmail,
+    );
+    if (!mounted) return;
+
+    final duplicateError = AuthService.formatDuplicateRegistrationError(
+      nikUsed: duplicate.nikUsed,
+      phoneUsed: duplicate.phoneUsed,
+      emailUsed: duplicate.emailUsed,
+    );
+    if (duplicateError != null) {
+      setState(() {
+        _checking = false;
+        if (duplicate.nikUsed) _nikError = 'NIK sudah terpakai';
+        if (duplicate.phoneUsed) _phoneError = 'NO.HP sudah terpakai';
+        if (duplicate.emailUsed) _emailError = 'EMAIL sudah terpakai';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(duplicateError),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _checking = false);
     final referral = _referral.text.trim();
     Navigator.of(context).push(
       authRoute<void>(
         OtpPage(
           args: AuthFlowArgs(
             purpose: AuthPurpose.register,
-            phone: AuthValidators.normalizePhone(_phone.text),
+            phone: normPhone,
             name: _name.text.trim(),
-            nik: _nik.text.replaceAll(RegExp(r'\D'), ''),
-            email: _email.text.trim(),
+            nik: cleanNik,
+            email: cleanEmail,
             password: _password.text,
             address: _address.text.trim(),
             birthDate: _birthDate,
@@ -183,6 +222,7 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         child: AuthButton(
           label: 'Lanjut & Verifikasi OTP',
+          loading: _checking,
           onPressed: _agree ? _next : null,
         ),
       ),

@@ -657,6 +657,60 @@ class AuthService {
     return true;
   }
 
+  /// Mengecek apakah NIK, Nomor HP, atau Email sudah dipakai oleh akun lain
+  /// (di cache lokal maupun di koleksi `users` Firebase Firestore).
+  Future<({bool nikUsed, bool phoneUsed, bool emailUsed})>
+      checkDuplicateRegistration({
+    required String nik,
+    required String phoneNumber,
+    required String email,
+  }) async {
+    final cleanNik = nik.replaceAll(RegExp(r'\D'), '');
+    final normPhone = _normalizePhoneDigits(phoneNumber);
+    final cleanEmail = email.trim().toLowerCase();
+
+    var nikUsed = false;
+    var phoneUsed = false;
+    var emailUsed = false;
+
+    void checkProfile(UserProfileModel profile) {
+      final profileNik = profile.nik.replaceAll(RegExp(r'\D'), '');
+      final profilePhone = _normalizePhoneDigits(profile.phoneNumber);
+      final profileEmail = profile.email.trim().toLowerCase();
+
+      if (cleanNik.isNotEmpty && profileNik == cleanNik) nikUsed = true;
+      if (normPhone.isNotEmpty && profilePhone == normPhone) phoneUsed = true;
+      if (cleanEmail.isNotEmpty && profileEmail == cleanEmail) emailUsed = true;
+    }
+
+    for (final entry in _localUsers.values) {
+      checkProfile(entry.profile);
+    }
+
+    final remoteUsers =
+        await AccountService.instance.fetchAllUsersFromFirestore();
+    for (final remote in remoteUsers) {
+      checkProfile(remote);
+    }
+
+    return (nikUsed: nikUsed, phoneUsed: phoneUsed, emailUsed: emailUsed);
+  }
+
+  /// Membentuk pesan error duplikasi pendaftaran (mis. "NIK/NO.HP/EMAIL sudah terpakai").
+  static String? formatDuplicateRegistrationError({
+    required bool nikUsed,
+    required bool phoneUsed,
+    required bool emailUsed,
+  }) {
+    final parts = <String>[
+      if (nikUsed) 'NIK',
+      if (phoneUsed) 'NO.HP',
+      if (emailUsed) 'EMAIL',
+    ];
+    if (parts.isEmpty) return null;
+    return '${parts.join('/')} sudah terpakai';
+  }
+
   /// Registrasi pengguna baru:
   /// 1. Validasi seluruh data diri (Nama, NIK, Tanggal Lahir, Alamat/Lokasi, Email, HP, Password, PIN)
   /// 2. Validasi Kode Referral Teman (opsional): jika valid, beri +500 FinPoin untuk pengajak & pengguna baru
@@ -706,6 +760,21 @@ class AuthService {
     }
     if (pin.trim().length != 6 || int.tryParse(pin.trim()) == null) {
       throw Exception('PIN keamanan harus terdiri dari 6 digit angka.');
+    }
+
+    // Validasi unik: 1 NIK, 1 No. HP, dan 1 Email = 1 User.
+    final duplicate = await checkDuplicateRegistration(
+      nik: cleanNik,
+      phoneNumber: cleanPhone,
+      email: cleanEmail,
+    );
+    final duplicateError = formatDuplicateRegistrationError(
+      nikUsed: duplicate.nikUsed,
+      phoneUsed: duplicate.phoneUsed,
+      emailUsed: duplicate.emailUsed,
+    );
+    if (duplicateError != null) {
+      throw Exception(duplicateError);
     }
 
     // Cek Kode Referral Teman (jika diisi saat mendaftar baru)
