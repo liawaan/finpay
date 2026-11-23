@@ -552,12 +552,11 @@ class AuthService {
     if (matchedProfile == null) return null;
 
     final cleanSecret = secret.trim();
-    final pinMatches = matchedProfile.pin == cleanSecret;
     final passwordMatches =
         (storedPassword != null && storedPassword == cleanSecret) ||
             matchedProfile.password == cleanSecret;
 
-    if (!pinMatches && !passwordMatches) {
+    if (!passwordMatches) {
       return null;
     }
 
@@ -797,10 +796,11 @@ class AuthService {
     await WealthService.instance.seedInitialWealthDataToFirestore();
   }
 
-  /// Keluar dari sesi akun saat ini, menyimpan snapshot data terakhir user, & kembali ke SplashPage -> Login/Register.
+  /// Keluar dari sesi akun saat ini, menyimpan snapshot data terakhir user, & kembali ke LoginPage.
   Future<void> logout() async {
     _saveCurrentSessionSnapshot();
     authRepository.logout();
+    authRepository.forgetRememberedAccount();
     isLoggedInNotifier.value = false;
   }
 

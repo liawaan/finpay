@@ -39,7 +39,7 @@ void main() {
 
     final textFields = find.byType(TextField);
     await tester.enterText(textFields.at(0), 'reza.pratama@email.com');
-    await tester.enterText(textFields.at(1), '123456');
+    await tester.enterText(textFields.at(1), 'password123');
     await tester.ensureVisible(find.text('Masuk'));
     await tester.tap(find.text('Masuk'));
     await tester.pumpAndSettle();

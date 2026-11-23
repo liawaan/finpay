@@ -16,21 +16,15 @@ import '../widgets/auth_button.dart';
 import '../widgets/auth_hero_scaffold.dart';
 import '../widgets/auth_routes.dart';
 import '../widgets/auth_text_field.dart';
-import '../widgets/biometric_sheet.dart';
 import '../widgets/shake.dart';
 import 'forgot_pin_page.dart';
 import 'register_page.dart';
 
-/// Login: tab Nomor HP / Email, PIN atau sandi, "Ingat akun saya", dan
-/// pilihan masuk cepat (biometrik, Google, Apple).
-///
-/// Memakai [authRepository]: ada pembatasan percobaan (5x salah = terkunci
-/// sementara) dan pesan error yang tidak membocorkan apakah suatu nomor
-/// terdaftar atau tidak.
+/// Login: tab Nomor HP / Email dengan Password saja.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, this.initialPhone});
 
-  /// Nomor HP yang diisi otomatis (mis. setelah reset PIN).
+  /// Nomor HP yang diisi otomatis (mis. setelah pemulihan akun).
   final String? initialPhone;
 
   @override
@@ -38,16 +32,11 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  static const String _demoPhone = '812-3456-7890';
-  static const String _demoAliPhone = '813-8899-7766';
-  static const String _demoPin = '123456';
-
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _pwController = TextEditingController();
   final FocusNode _pwFocus = FocusNode();
 
   bool _phoneMode = true;
-  bool _remember = true;
   bool _loading = false;
   String? _idError;
   String? _pwError;
@@ -91,35 +80,11 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  /// Pintasan untuk demo/presentasi: mengisi akun contoh Reza.
-  void _fillDemo() {
-    setState(() {
-      _phoneMode = true;
-      _idController.text = _demoPhone;
-      _pwController.text = _demoPin;
-      _idError = null;
-      _pwError = null;
-      _formError = null;
-    });
-  }
-
-  /// Pintasan cepat untuk mengisi kredensial akun Ali Akbar.
-  void _fillAliAccount() {
-    setState(() {
-      _phoneMode = true;
-      _idController.text = _demoAliPhone;
-      _pwController.text = _demoPin;
-      _idError = null;
-      _pwError = null;
-      _formError = null;
-    });
-  }
-
   bool _validate() {
     final id = _idController.text;
     final idError =
         _phoneMode ? AuthValidators.phone(id) : AuthValidators.email(id);
-    final pwError = _pwController.text.length < 6 ? 'Minimal 6 karakter' : null;
+    final pwError = AuthValidators.password(_pwController.text);
 
     setState(() {
       _idError = idError;
@@ -181,7 +146,7 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    // 1. Coba autentikasi terhadap AuthService & Firebase Firestore.
+    // Autentikasi terhadap AuthService & Firebase Firestore (hanya email/no. HP + password).
     final user = await AuthService.instance.loginWithIdentifier(
       identifier: identifier,
       secret: _pwController.text,
@@ -189,97 +154,17 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     if (user != null) {
-      // Sinkronkan juga ke authRepository agar "Ingat akun saya" & biometrik tetap aktif.
-      final normPhone = AuthValidators.normalizePhone(user.phoneNumber);
-      if (normPhone.isNotEmpty && !authRepository.phoneExists(normPhone)) {
-        try {
-          authRepository.register(
-            name: user.fullName,
-            phone: normPhone,
-            email: user.email,
-            pin: user.pin,
-          );
-        } on StateError {
-          // Sudah tersimpan di memori.
-        }
-      }
-      if (normPhone.isNotEmpty) {
-        authRepository.login(
-          identifier: normPhone,
-          secret: user.pin,
-          remember: _remember,
-        );
-      }
       _goHome();
       return;
     }
 
-    // 2. Fallback ke authRepository lokal (sekaligus menghitung batas percobaan salah).
-    final result = authRepository.login(
-      identifier: identifier,
-      secret: _pwController.text,
-      remember: _remember,
-    );
-
-    switch (result.status) {
-      case LoginStatus.success:
-        final acc = result.account;
-        if (acc != null) {
-          await AuthService.instance.loginWithIdentifier(
-            identifier: acc.email,
-            secret: acc.pin,
-          );
-          if (!mounted) return;
-        }
-        _goHome();
-      case LoginStatus.locked:
-        HapticFeedback.heavyImpact();
-        _startLock(result.lockRemaining);
-      case LoginStatus.wrongCredentials:
-      case LoginStatus.notFound:
-        HapticFeedback.heavyImpact();
-        // Pesan sengaja generik agar tidak membocorkan nomor yang terdaftar.
-        final warning = (result.status == LoginStatus.wrongCredentials &&
-                result.attemptsLeft <= 2)
-            ? ' Sisa percobaan: ${result.attemptsLeft}x.'
-            : '';
-        setState(() {
-          _loading = false;
-          _shake++;
-          _formError =
-              '${_phoneMode ? 'Nomor HP' : 'Email'} atau PIN salah.$warning';
-        });
-    }
-  }
-
-  Future<void> _biometric() async {
-    if (authRepository.rememberedAccount == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Login sekali dengan "Ingat akun saya" aktif untuk memakai biometrik.',
-          ),
-        ),
-      );
-      return;
-    }
-    final ok = await showBiometricSheet(context, title: 'Masuk ke FinPay');
-    if (!ok || !mounted) return;
-    final acc = authRepository.signInRemembered();
-    if (acc != null) {
-      await AuthService.instance.loginWithIdentifier(
-        identifier: acc.email,
-        secret: acc.pin,
-      );
-      if (!mounted) return;
-      _goHome();
-    }
-  }
-
-  void _comingSoon(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label belum tersedia (demo)')),
-    );
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _loading = false;
+      _shake++;
+      _formError =
+          '${_phoneMode ? 'Nomor HP' : 'Email'} atau password salah.';
+    });
   }
 
   // ---------- UI ----------
@@ -320,8 +205,8 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               const SizedBox(height: AppSpacing.md),
               AuthTextField(
-                label: 'PIN / Kata Sandi',
-                hint: 'Masukkan PIN atau kata sandi',
+                label: 'Password',
+                hint: 'Masukkan password',
                 controller: _pwController,
                 focusNode: _pwFocus,
                 obscure: true,
@@ -333,33 +218,19 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Row(
-          children: [
-            Transform.scale(
-              scale: 0.8,
-              child: Switch(
-                value: _remember,
-                onChanged: (v) => setState(() => _remember = v),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                activeColor: Colors.white,
-                activeTrackColor: AppColors.primary,
-              ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () => Navigator.of(context)
+                .push(authRoute<void>(const ForgotPinPage())),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
             ),
-            Expanded(
-              child: Text('Ingat akun saya', style: AppTextStyles.bodySmall),
+            child: Text(
+              'Lupa PIN?',
+              style: AppTextStyles.label.copyWith(color: AppColors.primary),
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context)
-                  .push(authRoute<void>(const ForgotPinPage())),
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-              ),
-              child: Text(
-                'Lupa PIN?',
-                style: AppTextStyles.label.copyWith(color: AppColors.primary),
-              ),
-            ),
-          ],
+          ),
         ),
         if (_locked) ...[
           const SizedBox(height: AppSpacing.xs),
@@ -380,45 +251,6 @@ class _LoginPageState extends State<LoginPage> {
         ),
         const SizedBox(height: AppSpacing.lg),
         Row(
-          children: [
-            const Expanded(child: Divider(color: AppColors.border)),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: Text('atau masuk dengan', style: AppTextStyles.caption),
-            ),
-            const Expanded(child: Divider(color: AppColors.border)),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickButton(
-                icon: Icons.fingerprint_rounded,
-                label: 'Biometrik',
-                onTap: _biometric,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: _QuickButton(
-                icon: Icons.g_mobiledata_rounded,
-                label: 'Google',
-                onTap: () => _comingSoon('Login Google'),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: _QuickButton(
-                icon: Icons.apple,
-                label: 'Apple',
-                onTap: () => _comingSoon('Login Apple'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text('Belum punya akun FinPay?', style: AppTextStyles.bodySmall),
@@ -431,45 +263,6 @@ class _LoginPageState extends State<LoginPage> {
               child: Text(
                 'Daftar',
                 style: AppTextStyles.label.copyWith(color: AppColors.primary),
-              ),
-            ),
-          ],
-        ),
-        // Pintasan demo: sengaja kecil dan di paling bawah.
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: AppSpacing.sm,
-          children: [
-            TextButton.icon(
-              onPressed: _fillAliAccount,
-              style:
-                  TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              icon: const Icon(
-                Icons.person_pin_rounded,
-                size: 16,
-                color: AppColors.primary,
-              ),
-              label: Text(
-                'Isi Akun Ali',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _fillDemo,
-              style:
-                  TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              icon: const Icon(
-                Icons.bolt_rounded,
-                size: 16,
-                color: AppColors.textTertiary,
-              ),
-              label: Text(
-                'Isi akun demo',
-                style: AppTextStyles.caption
-                    .copyWith(color: AppColors.textTertiary),
               ),
             ),
           ],
@@ -559,43 +352,6 @@ class _CountryPrefix extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Container(width: 1, height: 18, color: AppColors.border),
         ],
-      ),
-    );
-  }
-}
-
-/// Tombol kecil untuk pilihan masuk cepat (ikon + label).
-class _QuickButton extends StatelessWidget {
-  const _QuickButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 22, color: AppColors.textPrimary),
-      label: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: AppTextStyles.caption.copyWith(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(44),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-        side: const BorderSide(color: AppColors.border),
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
       ),
     );
   }

@@ -9,12 +9,10 @@ import '../auth_config.dart';
 import '../data/auth_repository.dart';
 import '../widgets/auth_routes.dart';
 import 'onboarding_page.dart';
-import 'pin_login_page.dart';
 
 /// Layar pembuka: logo muncul dengan animasi, lalu otomatis menuju:
 /// - Beranda, kalau sudah ada sesi login,
-/// - Login cepat (PIN), kalau perangkat ini mengingat satu akun,
-/// - Onboarding, kalau pengguna baru.
+/// - Onboarding, kalau belum login.
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
@@ -38,7 +36,6 @@ class _SplashPageState extends State<SplashPage> {
         authRepository.currentAccount != null) {
       return const MainPage();
     }
-    if (authRepository.rememberedAccount != null) return const PinLoginPage();
     return const OnboardingPage();
   }
 

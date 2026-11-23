@@ -6,13 +6,11 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../data/auth_repository.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_routes.dart';
 import '../widgets/geometric_art.dart';
 import '../widgets/legal_links.dart';
 import 'login_page.dart';
-import 'pin_login_page.dart';
 import 'register_page.dart';
 
 class _Slide {
@@ -94,11 +92,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     Navigator.of(context).push(authRoute<void>(page));
   }
 
-  /// Kalau perangkat ini mengingat akun, "Masuk" langsung ke PIN.
   void _login() {
-    _open(authRepository.rememberedAccount != null
-        ? const PinLoginPage()
-        : const LoginPage());
+    _open(const LoginPage());
   }
 
   /// Posisi halaman saat ini sebagai angka pecahan (mis. 0.4 = 40% menuju
