@@ -106,10 +106,10 @@ abstract class FinancialActionSheets {
     BuildContext context, {
     VoidCallback? onStateChanged,
   }) async {
-    final merchant = await showQrisMerchantPicker(context);
-    if (merchant == null || !context.mounted) return;
+    final rawQris = await showQrisScanSourceSheet(context);
+    if (rawQris == null || rawQris.trim().isEmpty || !context.mounted) return;
 
-    final payload = QrisService.instance.scan(merchant.qrisString);
+    final payload = QrisService.instance.scan(rawQris);
     final approvedAmount = await showQrisConfirmSheet(context, payload);
     if (approvedAmount == null || !context.mounted) return;
 
@@ -120,6 +120,8 @@ abstract class FinancialActionSheets {
         merchantName: payload.merchantName,
         merchantCity: payload.merchantCity,
         nmid: payload.nmid,
+        recipientUserId: payload.recipientUserId,
+        isPeerTransfer: payload.isFinPayUser,
         amount: approvedAmount,
         adminFee: fee,
         timeFormatted: timeFormatted,

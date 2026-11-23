@@ -29,58 +29,67 @@ class PayPage extends StatefulWidget {
 
 class _PayPageState extends State<PayPage> {
   bool _isFlashOn = false;
+  bool _isHandlingScan = false;
 
   /// Alur lengkap pembayaran QRIS dari string EMVCo QRIS:
   /// 1. Parse & validasi CRC16 via [QrisService.scan]
   /// 2. Tampilkan lembar konfirmasi [showQrisConfirmSheet] (termasuk verifikasi PIN 6 digit)
-  /// 3. Potong saldo & catat transaksi via [WalletService.payWithQris]
+  /// 3. Potong saldo & catat transaksi via [WalletService.payWithQris] (serta kredit saldo penerima bila Transfer QRIS Antar Pengguna)
   /// 4. Tampilkan struk digital [showQrisReceipt]
   Future<void> _handleScannedQrisString(String rawQris) async {
-    final QrisPayload payload;
+    if (_isHandlingScan) return;
+    _isHandlingScan = true;
     try {
-      payload = QrisService.instance.scan(rawQris);
-    } on QrisFormatException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
-      return;
-    }
+      final QrisPayload payload;
+      try {
+        payload = QrisService.instance.scan(rawQris);
+      } on QrisFormatException catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+        return;
+      }
 
-    final approvedAmount = await showQrisConfirmSheet(context, payload);
-    if (approvedAmount == null || !mounted) return;
+      final approvedAmount = await showQrisConfirmSheet(context, payload);
+      if (approvedAmount == null || !mounted) return;
 
-    final timeFormatted = TimeOfDay.now().format(context);
-    try {
-      final fee = QrisService.instance.adminFee(approvedAmount);
-      final trx = await WalletService.instance.payWithQris(
-        merchantName: payload.merchantName,
-        merchantCity: payload.merchantCity,
-        nmid: payload.nmid,
-        amount: approvedAmount,
-        adminFee: fee,
-        timeFormatted: timeFormatted,
-      );
-      if (!mounted) return;
-      setState(() {});
-      await showQrisReceipt(
-        context,
-        transaction: trx,
-        payload: payload,
-      );
-      if (mounted) setState(() {});
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
+      final timeFormatted = TimeOfDay.now().format(context);
+      try {
+        final fee = QrisService.instance.adminFee(approvedAmount);
+        final trx = await WalletService.instance.payWithQris(
+          merchantName: payload.merchantName,
+          merchantCity: payload.merchantCity,
+          nmid: payload.nmid,
+          recipientUserId: payload.recipientUserId,
+          isPeerTransfer: payload.isFinPayUser,
+          amount: approvedAmount,
+          adminFee: fee,
+          timeFormatted: timeFormatted,
+        );
+        if (!mounted) return;
+        setState(() {});
+        await showQrisReceipt(
+          context,
+          transaction: trx,
+          payload: payload,
+        );
+        if (mounted) setState(() {});
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      _isHandlingScan = false;
     }
   }
 
   Future<void> _openMerchantPicker() async {
-    final merchant = await showQrisMerchantPicker(context);
-    if (merchant == null || !mounted) return;
-    await _handleScannedQrisString(merchant.qrisString);
+    final rawQris = await showQrisScanSourceSheet(context);
+    if (rawQris == null || rawQris.trim().isEmpty || !mounted) return;
+    await _handleScannedQrisString(rawQris);
   }
 
   /// Aksi tombol "Bayar" di Metode QRIS Lainnya:
@@ -134,6 +143,7 @@ class _PayPageState extends State<PayPage> {
                   isActive: isCameraActive,
                   isFlashOn: _isFlashOn,
                   onTapViewport: _openMerchantPicker,
+                  onQrDetected: _handleScannedQrisString,
                 ),
 
                 // Gradasi halus di bagian atas agar teks & ikon putih tetap kontras di atas kamera
