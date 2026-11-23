@@ -1,6 +1,7 @@
 import 'package:finpay/core/theme/app_theme.dart';
 import 'package:finpay/data/dummy/dummy_data.dart';
 import 'package:finpay/data/models/qris_model.dart';
+import 'package:finpay/data/services/account_service.dart';
 import 'package:finpay/data/services/auth_service.dart';
 import 'package:finpay/data/services/qris_service.dart';
 import 'package:finpay/data/services/transaction_service.dart';
@@ -241,6 +242,36 @@ void main() {
         await AuthService.instance.login(
           email: 'reza.pratama@email.com',
           password: 'password123',
+        );
+      },
+    );
+
+    test(
+      'Login sebagai Ali Akbar via Nomor HP atau Email tidak tertimpa profil Reza Pratama',
+      () async {
+        // Mulai dari sesi Reza Pratama
+        await AuthService.instance.loginWithIdentifier(
+          identifier: 'reza.pratama@email.com',
+          secret: '123456',
+        );
+        expect(AccountService.instance.currentUser.fullName, 'Reza Pratama');
+
+        // Login sebagai Ali Akbar menggunakan nomor HP 813-8899-7766
+        final aliUser = await AuthService.instance.loginWithIdentifier(
+          identifier: '81388997766',
+          secret: '123456',
+        );
+        expect(aliUser, isNotNull);
+        expect(aliUser!.userId, 'finpay_user_ali');
+        expect(aliUser.fullName, 'Ali Akbar');
+        expect(AccountService.instance.currentUser.fullName, 'Ali Akbar');
+        expect(AuthService.instance.currentUser.fullName, 'Ali Akbar');
+        expect(DummyData.userName, 'Ali Akbar');
+
+        // Kembalikan sesi ke Reza
+        await AuthService.instance.loginWithIdentifier(
+          identifier: 'reza.pratama@email.com',
+          secret: '123456',
         );
       },
     );
