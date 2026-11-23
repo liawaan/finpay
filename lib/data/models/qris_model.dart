@@ -150,7 +150,7 @@ class QrisPayload {
   /// Membaca & memvalidasi string QRIS. Melempar [QrisFormatException]
   /// bila format, checksum, mata uang, atau negara tidak sesuai.
   factory QrisPayload.parse(String raw) {
-    var data = raw.trim().replaceAll(RegExp(r'\s+'), '');
+    var data = raw.trim().replaceAll(RegExp(r'[\r\n]+'), '');
     // Jika pengguna menempelkan teks yang memiliki awalan sebelum '000201', ambil mulai dari '000201'.
     final startIdx = data.indexOf('000201');
     if (startIdx > 0) {
