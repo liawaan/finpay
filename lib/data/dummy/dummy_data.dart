@@ -51,11 +51,6 @@ abstract class DummyData {
       icon: Icons.savings_outlined,
       badge: MenuBadge.dot(color: AppColors.success),
     ),
-    MenuItemData(
-      label: 'Pinjaman',
-      icon: Icons.request_quote_outlined,
-      badge: MenuBadge.text('OJK', color: AppColors.danger),
-    ),
     MenuItemData(label: 'Cash Flow', icon: Icons.donut_large_rounded),
     MenuItemData(label: 'Promo Fin', icon: Icons.redeem_outlined),
   ];

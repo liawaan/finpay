@@ -23,8 +23,7 @@ class IdentityVerificationPage extends StatelessWidget {
 
   static const List<String> _benefits = [
     'Limit transaksi hingga Rp 50.000.000 per hari',
-    'Akses Pinjaman Instan hingga Rp 25.000.000',
-    'Tarik tunai dan investasi tanpa batasan tambahan',
+    'Tarik tunai dan transfer tanpa batasan tambahan',
     'Prioritas layanan CS FinPay',
   ];
 

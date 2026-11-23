@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'cash_flow_page.dart';
-import 'loan_page.dart';
 import 'promos_page.dart';
 import 'savings_page.dart';
 import 'top_up_page.dart';
@@ -19,8 +18,6 @@ abstract class ServiceNavigationHelper {
       page = const TransferPage();
     } else if (lower.contains('menabung') || lower.contains('tabungan') || lower.contains('setor')) {
       page = const SavingsPage();
-    } else if (lower.contains('pinjam') || lower.contains('loan')) {
-      page = const LoanPage();
     } else if (lower.contains('cash flow') || lower.contains('arus kas')) {
       page = const CashFlowPage();
     } else if (lower.contains('promo')) {

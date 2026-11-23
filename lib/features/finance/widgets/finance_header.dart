@@ -22,7 +22,7 @@ class FinanceHeader extends StatelessWidget {
               Text('Keuangan & Portofolio', style: AppTextStyles.h1),
               const SizedBox(height: AppSpacing.xxs),
               Text(
-                'Kelola aset, investasi, dan target impianmu',
+                'Kelola saldo, anggaran, dan target impianmu',
                 style: AppTextStyles.caption,
               ),
             ],

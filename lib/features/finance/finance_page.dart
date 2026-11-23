@@ -6,7 +6,6 @@ import '../../data/services/transaction_service.dart';
 import '../../data/services/wallet_service.dart';
 import '../../data/services/wealth_service.dart';
 import '../services/service_navigation_helper.dart';
-import 'widgets/active_loan_summary_card.dart';
 import 'widgets/asset_distribution_card.dart';
 import 'widgets/finance_header.dart';
 import 'widgets/financial_health_card.dart';
@@ -116,13 +115,7 @@ class _FinancePageState extends State<FinancePage> {
                             ),
                             const SizedBox(height: AppSpacing.section),
 
-                            // 6. Ringkasan Pinjaman & Cicilan Aktif (Bukan banner duplikat)
-                            ActiveLoanSummaryCard(
-                              onStateChanged: _refreshData,
-                            ),
-                            const SizedBox(height: AppSpacing.section),
-
-                            // 7. Promo & Keuntungan Finansial
+                            // 6. Promo & Keuntungan Finansial
                             PromosSection(
                               onStateChanged: _refreshData,
                             ),

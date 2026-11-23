@@ -27,7 +27,6 @@ class _PromosSectionState extends State<PromosSection> {
     'Semua',
     'Cashback',
     'Diskon Tagihan',
-    'Investasi',
   ];
 
   @override
@@ -45,9 +44,13 @@ class _PromosSectionState extends State<PromosSection> {
     return ValueListenableBuilder<List<PromoModel>>(
       valueListenable: WealthService.instance.promosNotifier,
       builder: (context, promos, _) {
+        final visiblePromos =
+            promos.where((p) => p.category != 'Investasi').toList();
         final filteredPromos = _selectedCategory == 'Semua'
-            ? promos
-            : promos.where((p) => p.category == _selectedCategory).toList();
+            ? visiblePromos
+            : visiblePromos
+                .where((p) => p.category == _selectedCategory)
+                .toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

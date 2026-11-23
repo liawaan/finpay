@@ -24,7 +24,6 @@ class _PromosPageState extends State<PromosPage> {
     'Semua',
     'Cashback',
     'Diskon Tagihan',
-    'Investasi',
   ];
 
   Future<void> _claimPromo(PromoModel promo) async {
@@ -52,10 +51,14 @@ class _PromosPageState extends State<PromosPage> {
     return ValueListenableBuilder<List<PromoModel>>(
       valueListenable: WealthService.instance.promosNotifier,
       builder: (context, promos, _) {
+        final visiblePromos =
+            promos.where((p) => p.category != 'Investasi').toList();
         final items = _selectedCategory == 'Semua'
-            ? promos
-            : promos.where((p) => p.category == _selectedCategory).toList();
-        final claimedCount = promos.where((p) => p.isClaimed).length;
+            ? visiblePromos
+            : visiblePromos
+                .where((p) => p.category == _selectedCategory)
+                .toList();
+        final claimedCount = visiblePromos.where((p) => p.isClaimed).length;
 
         return Scaffold(
           backgroundColor: AppColors.background,

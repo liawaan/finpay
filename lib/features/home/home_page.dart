@@ -17,7 +17,6 @@ import 'widgets/cash_flow_card.dart';
 import 'widgets/financial_services_section.dart';
 import 'widgets/greeting_section.dart';
 import 'widgets/home_header.dart';
-import 'widgets/instant_loan_banner.dart';
 import 'widgets/quick_actions.dart';
 import 'widgets/saving_goal_card.dart';
 import 'widgets/security_info_card.dart';
@@ -139,19 +138,6 @@ class _HomePageState extends State<HomePage> {
       ),
       const SizedBox(height: AppSpacing.section),
       _buildHighlightsSection(),
-      const SizedBox(height: AppSpacing.lg),
-      InstantLoanBanner(
-        maxAmount: DummyData.loanMaxAmount,
-        minInstallment: DummyData.loanMinInstallment,
-        interestLabel: DummyData.loanInterest,
-        onApplyTap: () {
-          ServiceNavigationHelper.openService(
-            context,
-            'Pinjaman',
-            onStateChanged: _refresh,
-          );
-        },
-      ),
       const SizedBox(height: AppSpacing.section),
       TransactionHistorySection(
         transactions: DummyData.transactions,
