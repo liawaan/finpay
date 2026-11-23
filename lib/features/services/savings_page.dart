@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
@@ -123,6 +124,7 @@ class _SavingsPageState extends State<SavingsPage> {
               TextField(
                 controller: amountController,
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(
                   labelText: 'Nominal Tarik ke Saldo Cash (Rp)',
                   border: OutlineInputBorder(),
@@ -249,6 +251,7 @@ class _SavingsPageState extends State<SavingsPage> {
               TextField(
                 controller: targetController,
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(
                   labelText: 'Target Nominal (Rp)',
                   border: OutlineInputBorder(),

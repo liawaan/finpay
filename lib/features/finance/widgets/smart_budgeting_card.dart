@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
@@ -246,6 +247,7 @@ class SmartBudgetingCard extends StatelessWidget {
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: InputDecoration(
                 prefixText: 'Rp ',
                 hintText: 'Cth: 2000000',

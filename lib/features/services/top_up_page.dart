@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
@@ -413,6 +414,7 @@ class _TopUpPageState extends State<TopUpPage> {
                   TextField(
                     controller: _customAmountController,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     style: AppTextStyles.h2.copyWith(color: AppColors.primary),
                     decoration: InputDecoration(
                       prefixIcon: const Icon(

@@ -258,6 +258,7 @@ class _MyQrPageState extends State<MyQrPage> {
                 child: TextField(
                   controller: _amountController,
                   keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: InputDecoration(
                     labelText: 'Nominal tagihan (Rp)',
                     prefixIcon: const Icon(Icons.payments_rounded),

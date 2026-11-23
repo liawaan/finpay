@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
@@ -157,6 +158,12 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
 
                   TextField(
                     controller: _nameController,
+                    keyboardType: TextInputType.name,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r"[a-zA-Z\s'.\-]"),
+                      ),
+                    ],
                     decoration: const InputDecoration(
                       labelText: 'Nama Lengkap',
                       border: OutlineInputBorder(),
@@ -168,6 +175,7 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
                   TextField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
                       labelText: 'Nomor Handphone',
                       border: OutlineInputBorder(),
@@ -190,8 +198,11 @@ class _ProfileDetailPageState extends State<ProfileDetailPage> {
                   TextField(
                     controller: _nikController,
                     keyboardType: TextInputType.number,
+                    maxLength: 16,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
                       labelText: 'NIK (Nomor Induk Kependudukan)',
+                      counterText: '',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.badge_outlined),
                     ),

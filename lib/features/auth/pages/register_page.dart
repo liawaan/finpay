@@ -231,6 +231,10 @@ class _RegisterPageState extends State<RegisterPage> {
           label: 'Nama Lengkap (sesuai KTP)',
           hint: 'Contoh: Reza Pratama',
           controller: _name,
+          keyboardType: TextInputType.name,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z\s'.\-]")),
+          ],
           errorText: _nameError,
           textCapitalization: TextCapitalization.words,
           textInputAction: TextInputAction.next,

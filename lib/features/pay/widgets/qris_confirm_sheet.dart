@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimens.dart';
@@ -159,6 +160,7 @@ class _QrisConfirmSheetState extends State<_QrisConfirmSheet> {
                     controller: _amountController,
                     autofocus: true,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       labelText: 'Masukkan nominal (Rp)',
