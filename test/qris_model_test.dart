@@ -1,5 +1,10 @@
 import 'package:finpay/core/theme/app_theme.dart';
+import 'package:finpay/data/dummy/dummy_data.dart';
 import 'package:finpay/data/models/qris_model.dart';
+import 'package:finpay/data/services/auth_service.dart';
+import 'package:finpay/data/services/qris_service.dart';
+import 'package:finpay/data/services/transaction_service.dart';
+import 'package:finpay/data/services/wallet_service.dart';
 import 'package:finpay/features/pay/pay_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +12,14 @@ import 'package:google_fonts/google_fonts.dart';
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+
+  setUp(() {
+    FirebaseFirestoreConfig.projectId = '';
+  });
+
+  tearDown(() {
+    FirebaseFirestoreConfig.projectId = 'finpay-app-4026a';
+  });
   const merchant = QrisPayload(
     merchantName: 'Kopi Kenangan Sudirman',
     merchantCity: 'Jakarta',
@@ -164,6 +177,71 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('QRIS Saya'), findsOneWidget);
+      },
+    );
+
+    test(
+      'QRIS Ali Akbar dapat di-scan oleh Reza Pratama untuk transfer dan saldo Ali bertambah',
+      () async {
+        // 1. Ali Akbar login dan membuat QRIS miliknya (nominal Rp 75.000)
+        await AuthService.instance.login(
+          email: 'ali.akbar@email.com',
+          password: 'password123',
+        );
+        final aliInitialCash = DummyData.cashBalance;
+        final aliPublishedQris = await QrisService.instance
+            .publishActiveUserQris(amount: 75000);
+
+        expect(aliPublishedQris.userName, 'Ali Akbar');
+        expect(aliPublishedQris.userId, 'finpay_user_ali');
+
+        // 2. Reza Pratama login lalu memindai (scan) kode QRIS milik Ali Akbar
+        await AuthService.instance.login(
+          email: 'reza.pratama@email.com',
+          password: 'password123',
+        );
+        final rezaInitialCash = DummyData.cashBalance;
+
+        final scannedPayload =
+            QrisService.instance.scan(aliPublishedQris.qrisString);
+        expect(scannedPayload.merchantName, 'Ali Akbar');
+        expect(scannedPayload.isFinPayUser, isTrue);
+        expect(scannedPayload.recipientUserId, 'finpay_user_ali');
+        expect(scannedPayload.amount, 75000);
+
+        // 3. Reza menyelesaikan pembayaran/transfer QRIS ke Ali
+        final resolvedAmount = QrisService.instance.resolveAmount(
+          scannedPayload,
+        );
+        final trx = await WalletService.instance.payWithQris(
+          merchantName: scannedPayload.merchantName,
+          merchantCity: scannedPayload.merchantCity,
+          nmid: scannedPayload.nmid,
+          recipientUserId: scannedPayload.recipientUserId,
+          isPeerTransfer: scannedPayload.isFinPayUser,
+          amount: resolvedAmount,
+          timeFormatted: '12:45',
+        );
+
+        expect(trx.title, 'Transfer QRIS ke Ali Akbar');
+        expect(DummyData.cashBalance, rezaInitialCash - 75000);
+
+        // 4. Ketika Ali Akbar login kembali, saldo Ali bertambah Rp 75.000 & ada riwayat Terima QRIS dari Reza
+        await AuthService.instance.login(
+          email: 'ali.akbar@email.com',
+          password: 'password123',
+        );
+        expect(DummyData.cashBalance, aliInitialCash + 75000);
+        expect(
+          DummyData.transactions.first.title,
+          'Terima QRIS dari Reza Pratama',
+        );
+
+        // Kembalikan sesi ke Reza
+        await AuthService.instance.login(
+          email: 'reza.pratama@email.com',
+          password: 'password123',
+        );
       },
     );
   });
