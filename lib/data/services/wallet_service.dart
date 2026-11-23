@@ -168,6 +168,8 @@ class WalletService {
     required bool isBankTransfer,
     required String timeFormatted,
     String? note,
+    String? paymentMethod,
+    bool useLinkedAccount = false,
   }) async {
     final cleanRecipient = recipient.trim();
     if (cleanRecipient.isEmpty) {
@@ -176,7 +178,7 @@ class WalletService {
     if (amount <= 0) {
       throw Exception('Nominal transfer harus lebih dari Rp 0.');
     }
-    if (amount > DummyData.cashBalance) {
+    if (!useLinkedAccount && amount > DummyData.cashBalance) {
       throw Exception('Saldo FinPay Cash kamu tidak mencukupi!');
     }
 
@@ -186,7 +188,9 @@ class WalletService {
     final recipientDisplayName = peerRecipient?.fullName ?? cleanRecipient;
     final cleanNote = (note ?? '').trim();
 
-    await updateBalance(cashDelta: -amount);
+    if (!useLinkedAccount) {
+      await updateBalance(cashDelta: -amount);
+    }
 
     final referenceNumber =
         'FPX-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
@@ -195,6 +199,8 @@ class WalletService {
         'Penerima: ${peerRecipient.fullName} (${peerRecipient.phoneNumber})'
       else
         'Penerima: $cleanRecipient',
+      if (paymentMethod != null && paymentMethod.trim().isNotEmpty)
+        'Sumber: ${paymentMethod.trim()}',
       if (cleanNote.isNotEmpty) 'Catatan: $cleanNote',
     ];
 
@@ -202,7 +208,9 @@ class WalletService {
       userId: FirebaseFirestoreConfig.defaultUserId,
       title: 'Transfer ke $recipientDisplayName',
       dateTime: 'Hari Ini, $timeFormatted',
-      channel: isBankTransfer ? 'Transfer Bank' : 'Antar FinPay',
+      channel: (paymentMethod != null && paymentMethod.trim().isNotEmpty)
+          ? paymentMethod.trim()
+          : (isBankTransfer ? 'Transfer Bank' : 'Antar FinPay'),
       amount: -amount,
       icon: Icons.person_outline_rounded,
       type: TransactionType.expense,
