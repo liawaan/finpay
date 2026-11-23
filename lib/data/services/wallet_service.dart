@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../dummy/dummy_data.dart';
 import '../models/qris_model.dart';
 import '../models/transaction_model.dart';
+import '../models/user_profile_model.dart';
 import '../models/wallet_model.dart';
 import 'account_service.dart';
 import 'auth_service.dart';
@@ -117,7 +118,50 @@ class WalletService {
     return order;
   }
 
+  /// Mencari pengguna FinPay penerima berdasarkan No. HP, Email, atau Nama.
+  Future<UserProfileModel?> _resolvePeerRecipient(String recipientInput) async {
+    final trimmed = recipientInput.trim();
+    if (trimmed.isEmpty) return null;
+
+    final currentUserId = AccountService.instance.currentUser.userId;
+    final lower = trimmed.toLowerCase();
+    final digits = trimmed.replaceAll(RegExp(r'\D'), '');
+    final normDigits = digits.startsWith('62')
+        ? digits.substring(2)
+        : (digits.startsWith('0') ? digits.substring(1) : digits);
+
+    String normalizePhone(String raw) {
+      var d = raw.replaceAll(RegExp(r'\D'), '');
+      if (d.startsWith('62')) d = d.substring(2);
+      if (d.startsWith('0')) d = d.substring(1);
+      return d;
+    }
+
+    bool matches(UserProfileModel u) {
+      if (u.userId == currentUserId) return false;
+      final uPhone = normalizePhone(u.phoneNumber);
+      final uEmail = u.email.trim().toLowerCase();
+      final uName = u.fullName.trim().toLowerCase();
+      if (normDigits.length >= 8 && uPhone == normDigits) return true;
+      if (lower.contains('@') && uEmail == lower) return true;
+      if (uName.isNotEmpty && (lower == uName || lower.contains(uName))) {
+        return true;
+      }
+      return false;
+    }
+
+    final remoteUsers =
+        await AccountService.instance.fetchAllUsersFromFirestore();
+    for (final user in remoteUsers) {
+      if (matches(user)) return user;
+    }
+
+    return null;
+  }
+
   /// Proses Transfer Uang (Sesama FinPay / Rekening Bank).
+  /// Jika penerima adalah pengguna FinPay terdaftar, saldo dan riwayat transaksi
+  /// penerima juga otomatis diperbarui (muncul di kedua akun).
   Future<TransactionModel> transferMoney({
     required String recipient,
     required int amount,
@@ -125,6 +169,10 @@ class WalletService {
     required String timeFormatted,
     String? note,
   }) async {
+    final cleanRecipient = recipient.trim();
+    if (cleanRecipient.isEmpty) {
+      throw Exception('Penerima transfer wajib diisi.');
+    }
     if (amount <= 0) {
       throw Exception('Nominal transfer harus lebih dari Rp 0.');
     }
@@ -132,13 +180,27 @@ class WalletService {
       throw Exception('Saldo FinPay Cash kamu tidak mencukupi!');
     }
 
+    final sender = AccountService.instance.currentUser;
+    final peerRecipient =
+        isBankTransfer ? null : await _resolvePeerRecipient(cleanRecipient);
+    final recipientDisplayName = peerRecipient?.fullName ?? cleanRecipient;
+    final cleanNote = (note ?? '').trim();
+
     await updateBalance(cashDelta: -amount);
 
     final referenceNumber =
         'FPX-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+    final outgoingNoteParts = <String>[
+      if (peerRecipient != null)
+        'Penerima: ${peerRecipient.fullName} (${peerRecipient.phoneNumber})'
+      else
+        'Penerima: $cleanRecipient',
+      if (cleanNote.isNotEmpty) 'Catatan: $cleanNote',
+    ];
+
     final trx = TransactionModel(
       userId: FirebaseFirestoreConfig.defaultUserId,
-      title: 'Transfer ke $recipient',
+      title: 'Transfer ke $recipientDisplayName',
       dateTime: 'Hari Ini, $timeFormatted',
       channel: isBankTransfer ? 'Transfer Bank' : 'Antar FinPay',
       amount: -amount,
@@ -147,11 +209,125 @@ class WalletService {
       referenceNumber: referenceNumber,
       category: 'Transfer',
       dateGroup: 'Hari Ini',
-      note: (note == null || note.trim().isEmpty) ? 'Transfer dana' : note,
+      note: outgoingNoteParts.join(' • '),
     );
 
     await TransactionService.instance.addTransaction(trx);
+
+    // Jika transfer ke sesama pengguna FinPay, catat juga riwayat & saldo di akun penerima.
+    if (peerRecipient != null) {
+      await _creditRecipientForPeerTransfer(
+        recipientUserId: peerRecipient.userId,
+        recipientName: peerRecipient.fullName,
+        senderName: sender.fullName,
+        senderPhone: sender.phoneNumber,
+        amount: amount,
+        timeFormatted: timeFormatted,
+        baseReferenceNumber: referenceNumber,
+        note: cleanNote,
+      );
+    }
+
     return trx;
+  }
+
+  Future<void> _creditRecipientForPeerTransfer({
+    required String recipientUserId,
+    required String recipientName,
+    required String senderName,
+    required String senderPhone,
+    required int amount,
+    required String timeFormatted,
+    required String baseReferenceNumber,
+    String note = '',
+  }) async {
+    final incomingRef = '$baseReferenceNumber-IN';
+    final noteDetail = note.isNotEmpty ? ' • Catatan: $note' : '';
+    final incomingTrx = TransactionModel(
+      userId: recipientUserId,
+      title: 'Transfer masuk dari $senderName',
+      dateTime: 'Hari Ini, $timeFormatted',
+      channel: 'Antar FinPay',
+      amount: amount,
+      icon: Icons.call_received_rounded,
+      type: TransactionType.income,
+      referenceNumber: incomingRef,
+      category: 'Transfer Masuk',
+      dateGroup: 'Hari Ini',
+      note: 'Pengirim: $senderName ($senderPhone)$noteDetail',
+    );
+
+    AuthService.instance.creditPeerUserSession(
+      recipientUserId: recipientUserId,
+      recipientName: recipientName,
+      amount: amount,
+      incomingTransaction: incomingTrx,
+    );
+
+    if (!FirebaseFirestoreConfig.isConfigured) return;
+
+    try {
+      var currentRecipientCash = 0;
+      var currentRecipientSaving = 0;
+
+      final walletUrl = Uri.parse(
+        '${FirebaseFirestoreConfig.baseUrl}/wallets/$recipientUserId',
+      );
+      final getRes =
+          await http.get(walletUrl).timeout(const Duration(seconds: 6));
+      if (getRes.statusCode == 200) {
+        final decoded = jsonDecode(getRes.body) as Map<String, dynamic>;
+        final fields = decoded['fields'] as Map<String, dynamic>?;
+        if (fields != null) {
+          currentRecipientCash = int.tryParse(
+                (fields['cashBalance']
+                            as Map<String, dynamic>?)?['integerValue']
+                        ?.toString() ??
+                    '',
+              ) ??
+              currentRecipientCash;
+          currentRecipientSaving = int.tryParse(
+                (fields['savingBalance']
+                            as Map<String, dynamic>?)?['integerValue']
+                        ?.toString() ??
+                    '',
+              ) ??
+              currentRecipientSaving;
+        }
+      }
+
+      final updatedRecipientWallet = WalletModel(
+        userId: recipientUserId,
+        cashBalance: currentRecipientCash + amount,
+        savingBalance: currentRecipientSaving,
+        updatedAt: DateTime.now(),
+      );
+      await _syncWalletToFirestore(updatedRecipientWallet);
+
+      final trxUrl = Uri.parse(
+        '${FirebaseFirestoreConfig.baseUrl}/transactions/$incomingRef',
+      );
+      final incomingMap = incomingTrx.toMap();
+      final firestoreFields = <String, dynamic>{};
+      incomingMap.forEach((key, value) {
+        if (value == null) return;
+        if (value is int) {
+          firestoreFields[key] = {'integerValue': value.toString()};
+        } else if (value is bool) {
+          firestoreFields[key] = {'booleanValue': value};
+        } else {
+          firestoreFields[key] = {'stringValue': value.toString()};
+        }
+      });
+
+      await http
+          .patch(
+            trxUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'fields': firestoreFields}),
+          )
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {}
   }
 
   /// Proses Pembayaran Scan QRIS Merchant atau Transfer QRIS Antar Pengguna FinPay.
