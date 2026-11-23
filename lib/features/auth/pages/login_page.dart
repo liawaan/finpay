@@ -18,6 +18,7 @@ import '../widgets/auth_routes.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/shake.dart';
 import 'forgot_password_page.dart';
+import 'onboarding_page.dart';
 import 'register_page.dart';
 
 /// Login: tab Nomor HP / Email dengan Password saja.
@@ -167,6 +168,16 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+  void _handleBack() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushReplacement(
+        authRoute<void>(const OnboardingPage()),
+      );
+    }
+  }
+
   // ---------- UI ----------
 
   @override
@@ -174,6 +185,7 @@ class _LoginPageState extends State<LoginPage> {
     return AuthHeroScaffold(
       title: 'Selamat datang kembali',
       subtitle: 'Masuk ke akun FinPay kamu untuk lanjut bertransaksi.',
+      onBack: _handleBack,
       children: [
         _buildModeTabs(),
         const SizedBox(height: AppSpacing.md),

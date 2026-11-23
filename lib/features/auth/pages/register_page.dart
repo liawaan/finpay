@@ -158,11 +158,22 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  void _handleBack() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushReplacement(
+        authRoute<void>(const LoginPage()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AuthHeroScaffold(
       title: 'Buka rekening FinPay',
       subtitle: 'Isi data dirimu. Proses ini hanya butuh beberapa menit.',
+      onBack: _handleBack,
       bottom: Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.page,

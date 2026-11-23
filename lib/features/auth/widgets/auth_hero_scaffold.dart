@@ -20,6 +20,7 @@ class AuthHeroScaffold extends StatelessWidget {
     this.trailing,
     this.bottom,
     this.showBack = true,
+    this.onBack,
   });
 
   final String title;
@@ -31,12 +32,15 @@ class AuthHeroScaffold extends StatelessWidget {
   final Widget? bottom;
   final bool showBack;
 
+  /// Aksi khusus tombol kembali di kiri atas (fallback jika `canPop()` false).
+  final VoidCallback? onBack;
+
   /// Kelengkungan sudut bawah header.
   static const double _headerRadius = 36;
 
   @override
   Widget build(BuildContext context) {
-    final canGoBack = showBack && Navigator.of(context).canPop();
+    final canGoBack = showBack && (onBack != null || Navigator.of(context).canPop());
     final topInset = MediaQuery.paddingOf(context).top;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
@@ -63,6 +67,7 @@ class AuthHeroScaffold extends StatelessWidget {
                         subtitle: subtitle,
                         trailing: trailing,
                         canGoBack: canGoBack,
+                        onBack: onBack,
                       ),
                       Padding(
                         padding: EdgeInsets.fromLTRB(
@@ -101,6 +106,7 @@ class _Header extends StatelessWidget {
     required this.subtitle,
     required this.trailing,
     required this.canGoBack,
+    this.onBack,
   });
 
   final double topInset;
@@ -108,6 +114,7 @@ class _Header extends StatelessWidget {
   final String? subtitle;
   final Widget? trailing;
   final bool canGoBack;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +166,7 @@ class _Header extends StatelessWidget {
                               shape: const CircleBorder(),
                               child: InkWell(
                                 customBorder: const CircleBorder(),
-                                onTap: () => Navigator.maybePop(context),
+                                onTap: onBack ?? () => Navigator.maybePop(context),
                                 child: const SizedBox(
                                   width: 40,
                                   height: 40,
