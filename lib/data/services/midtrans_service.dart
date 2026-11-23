@@ -156,49 +156,6 @@ class MidtransService {
       );
 
   void _seedInitialOrders() {
-    final now = DateTime.now();
-    final initial = [
-      MidtransOrderResult(
-        orderId: 'FPX-90821231',
-        userId: 'finpay_user_01',
-        amount: 500000,
-        paymentMethod: 'BCA Virtual Account',
-        snapToken: 'sandbox-token-fpx-90821231',
-        redirectUrl:
-            'https://app.sandbox.midtrans.com/snap/v2/vtweb/FPX-90821231',
-        vaNumber: '88012 081234567890',
-        status: 'settlement',
-        createdAt: now.subtract(const Duration(hours: 2)),
-      ),
-      MidtransOrderResult(
-        orderId: 'FPX-90820012',
-        userId: 'finpay_user_01',
-        amount: 250000,
-        paymentMethod: 'Mandiri Virtual Account',
-        snapToken: 'sandbox-token-fpx-90820012',
-        redirectUrl:
-            'https://app.sandbox.midtrans.com/snap/v2/vtweb/FPX-90820012',
-        vaNumber: '88013 081299887766',
-        status: 'settlement',
-        createdAt: now.subtract(const Duration(hours: 6)),
-      ),
-      MidtransOrderResult(
-        orderId: 'FPX-90772100',
-        userId: 'finpay_user_01',
-        amount: 1000000,
-        paymentMethod: 'BRI Virtual Account (BRIVA)',
-        snapToken: 'sandbox-token-fpx-90772100',
-        redirectUrl:
-            'https://app.sandbox.midtrans.com/snap/v2/vtweb/FPX-90772100',
-        vaNumber: '88014 081234567890',
-        status: 'settlement',
-        createdAt: now.subtract(const Duration(days: 1)),
-      ),
-    ];
-
-    for (final order in initial) {
-      _ordersCache[order.orderId] = order;
-    }
     _publishOrders();
   }
 

@@ -56,7 +56,7 @@ class _ContactCsPageState extends State<ContactCsPage> {
     );
     _pollChatRealtime();
     _liveChatTimer = Timer.periodic(
-      const Duration(seconds: 2),
+      const Duration(seconds: 25),
       (_) => _pollChatRealtime(),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());

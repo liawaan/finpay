@@ -22,33 +22,16 @@ class AccountService {
 
   final ValueNotifier<UserProfileModel> userNotifier =
       ValueNotifier<UserProfileModel>(
-    UserProfileModel(
-      userId: FirebaseFirestoreConfig.defaultUserId,
-      fullName: DummyData.userName,
-      email: 'reza.pratama@email.com',
-      phoneNumber: DummyData.phoneNumber,
+    const UserProfileModel(
+      userId: '',
+      fullName: '',
+      email: '',
+      phoneNumber: '',
     ),
   );
 
   final ValueNotifier<List<LinkedAccountModel>> linkedAccountsNotifier =
-      ValueNotifier<List<LinkedAccountModel>>([
-    const LinkedAccountModel(
-      id: 'acc_bca_01',
-      userId: 'finpay_user_01',
-      bankName: 'BCA',
-      accountNumber: '8801204821',
-      holderName: 'Reza Pratama',
-      isPrimary: true,
-    ),
-    const LinkedAccountModel(
-      id: 'acc_mandiri_02',
-      userId: 'finpay_user_01',
-      bankName: 'Mandiri',
-      accountNumber: '1300097733',
-      holderName: 'Reza Pratama',
-      isPrimary: false,
-    ),
-  ]);
+      ValueNotifier<List<LinkedAccountModel>>([]);
 
   UserProfileModel get currentUser => userNotifier.value;
   List<LinkedAccountModel> get linkedAccounts => linkedAccountsNotifier.value;
@@ -58,8 +41,7 @@ class AccountService {
     final outgoing = DummyData.transactions.where(
       (t) => !t.isIncoming && t.dateGroup.toLowerCase().contains('hari ini'),
     );
-    final sum = outgoing.fold<int>(0, (acc, item) => acc + item.amount.abs());
-    return sum > 0 ? sum : 3650000;
+    return outgoing.fold<int>(0, (acc, item) => acc + item.amount.abs());
   }
 
   /// Update data kontak profil pengguna (Nama, Email, Nomor HP, Alamat) & sinkronkan ke koleksi `users`.

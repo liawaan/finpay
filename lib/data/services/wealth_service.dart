@@ -21,58 +21,13 @@ class WealthService {
   WealthService._();
   static final WealthService instance = WealthService._();
 
-  /// Daftar target menabung yang reaktif.
+  /// Daftar target menabung yang reaktif (mulai kosong, diisi dari Firebase/user).
   final ValueNotifier<List<SavingGoalModel>> savingGoalsNotifier =
-      ValueNotifier<List<SavingGoalModel>>([
-    const SavingGoalModel(
-      id: 'goal_japan_01',
-      userId: 'finpay_user_01',
-      title: 'Liburan ke Jepang ✈️',
-      category: 'Impian',
-      currentAmount: 7500000,
-      targetAmount: 15000000,
-      monthlyDebit: 500000,
-      eta: 'Mei 2025',
-      colorHex: 0xFF2563EB,
-    ),
-    const SavingGoalModel(
-      id: 'goal_emergency_02',
-      userId: 'finpay_user_01',
-      title: 'Dana Darurat 6 Bulan 🛡️',
-      category: 'Keamanan',
-      currentAmount: 8000000,
-      targetAmount: 10000000,
-      monthlyDebit: 1000000,
-      eta: 'Desember 2024',
-      colorHex: 0xFF5EEAD4,
-    ),
-    const SavingGoalModel(
-      id: 'goal_laptop_03',
-      userId: 'finpay_user_01',
-      title: 'Beli Laptop Workstation 💻',
-      category: 'Impian',
-      currentAmount: 3000000,
-      targetAmount: 12000000,
-      monthlyDebit: 750000,
-      eta: 'Agustus 2025',
-      colorHex: 0xFFFACC15,
-    ),
-  ]);
+      ValueNotifier<List<SavingGoalModel>>([]);
 
   /// Daftar pinjaman aktif pengguna.
   final ValueNotifier<List<LoanModel>> activeLoansNotifier =
-      ValueNotifier<List<LoanModel>>([
-    const LoanModel(
-      id: 'loan_initial_01',
-      userId: 'finpay_user_01',
-      principalAmount: 5000000,
-      tenorMonths: 6,
-      monthlyInstallment: 878333,
-      paidMonths: 1,
-      referenceNumber: 'FPX-90123849',
-      status: 'Aktif',
-    ),
-  ]);
+      ValueNotifier<List<LoanModel>>([]);
 
   /// Pos Anggaran Bulanan (Smart Budgeting - Murni Lokal In-Memory State).
   final ValueNotifier<List<BudgetCategoryModel>> budgetsNotifier =

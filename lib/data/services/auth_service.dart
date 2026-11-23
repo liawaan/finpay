@@ -54,38 +54,17 @@ class AuthService {
   /// Profil pengguna yang sedang aktif.
   final ValueNotifier<UserProfileModel> currentUserNotifier =
       ValueNotifier<UserProfileModel>(
-    UserProfileModel(
-      userId: FirebaseFirestoreConfig.defaultUserId,
-      fullName: DummyData.userName,
-      email: 'reza.pratama@email.com',
-      phoneNumber: DummyData.phoneNumber,
+    const UserProfileModel(
+      userId: '',
+      fullName: '',
+      email: '',
+      phoneNumber: '',
     ),
   );
 
-  // Database kredensial in-memory untuk fallback offline/sandbox
+  // Cache kredensial in-memory untuk sesi aktif (kosong di awal, murni dari Firebase).
   final Map<String, ({String password, UserProfileModel profile})> _localUsers =
-      {
-    'reza.pratama@email.com': (
-      password: 'password123',
-      profile: const UserProfileModel(
-        userId: 'finpay_user_01',
-        fullName: 'Reza Pratama',
-        email: 'reza.pratama@email.com',
-        phoneNumber: '0812-3456-7890',
-        pin: '123456',
-      ),
-    ),
-    'ali.akbar@email.com': (
-      password: 'password123',
-      profile: const UserProfileModel(
-        userId: 'finpay_user_ali',
-        fullName: 'Ali Akbar',
-        email: 'ali.akbar@email.com',
-        phoneNumber: '0813-8899-7766',
-        pin: '123456',
-      ),
-    ),
-  };
+      {};
 
   final Map<String, _UserSessionSnapshot> _userSnapshots = {};
   late final List<TransactionModel> _initialRezaTransactions =

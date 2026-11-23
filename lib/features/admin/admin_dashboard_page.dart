@@ -6,7 +6,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimens.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/currency_formatter.dart';
-import '../../data/dummy/dummy_data.dart';
 import '../../data/models/support_chat_model.dart';
 import '../../data/models/transaction_model.dart';
 import '../../data/models/user_profile_model.dart';
@@ -51,10 +50,47 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   void initState() {
     super.initState();
     _pullFirestoreDataSilently();
+    // Hemat kuota Spark Plan: polling hanya berjalan setiap 25 detik dan
+    // khusus untuk tab Live CS saat sedang dibuka.
     _liveSyncTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => _pullFirestoreDataSilently(),
+      const Duration(seconds: 25),
+      (_) {
+        if (_selectedTabIndex == 3) {
+          _pullSingleCollectionForTab(3);
+        }
+      },
     );
+  }
+
+  void _selectTab(int index) {
+    if (_selectedTabIndex == index) return;
+    setState(() => _selectedTabIndex = index);
+    _pullSingleCollectionForTab(index);
+  }
+
+  Future<void> _pullSingleCollectionForTab(int tabIndex) async {
+    if (_isSyncingFirestore) return;
+    _isSyncingFirestore = true;
+    try {
+      switch (tabIndex) {
+        case 1:
+          await TransactionService.instance.fetchTransactionsFromFirebase();
+        case 2:
+        case 5:
+          final fetchedUsers =
+              await AccountService.instance.fetchAllUsersFromFirestore();
+          if (fetchedUsers.isNotEmpty) _firestoreUsers = fetchedUsers;
+        case 3:
+          await SupportChatService.instance.fetchMessagesFromFirebase();
+        case 4:
+          await MidtransService.instance.fetchOrdersFromFirebase();
+        default:
+          break;
+      }
+      if (mounted) setState(() {});
+    } finally {
+      _isSyncingFirestore = false;
+    }
   }
 
   Future<void> _pullFirestoreDataSilently() async {
@@ -77,49 +113,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     }
   }
 
-  // Dummy list user untuk manajemen pengguna admin
-  final List<Map<String, dynamic>> _userList = [
-    {
-      'id': 'finpay_user_01',
-      'name': DummyData.userName,
-      'email': 'reza.pratama@email.com',
-      'phone': DummyData.phoneNumber,
-      'nik': '3174123456780001',
-      'tier': DummyData.membership,
-      'kycStatus': 'Terverifikasi',
-      'isBlocked': false,
-    },
-    {
-      'id': 'finpay_user_02',
-      'name': 'Budi Santoso',
-      'email': 'budi.santoso@email.com',
-      'phone': '0812-9988-7766',
-      'nik': '3171029102910002',
-      'tier': 'FinPay Reguler',
-      'kycStatus': 'Menunggu Review',
-      'isBlocked': false,
-    },
-    {
-      'id': 'finpay_user_03',
-      'name': 'Siska Pertiwi',
-      'email': 'siska.pertiwi@email.com',
-      'phone': '0813-1122-3344',
-      'nik': '3173098811220003',
-      'tier': 'FinPay Premier',
-      'kycStatus': 'Terverifikasi',
-      'isBlocked': false,
-    },
-    {
-      'id': 'finpay_user_04',
-      'name': 'Eko Kurniawan',
-      'email': 'eko.kurniawan@email.com',
-      'phone': '0857-4455-6677',
-      'nik': '3275012233440004',
-      'tier': 'FinPay Reguler',
-      'kycStatus': 'Belum Upload',
-      'isBlocked': false,
-    },
-  ];
+  // Daftar user lokal kosong (seluruh data ditarik langsung dari Firebase Firestore).
+  final List<Map<String, dynamic>> _userList = [];
 
   /// Menggabungkan seluruh pengguna dari Firebase Firestore (`users`), akun aktif,
   /// serta pengguna yang pernah mengirim pesan CS (`support_chats`).
@@ -210,13 +205,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     if (text.isEmpty) return;
 
     final users = _mergedUserList;
+    if (users.isEmpty) return;
     final targetUser = users.firstWhere(
       (u) => u['id'] == _selectedUserChatId,
       orElse: () => users.first,
     );
 
     SupportChatService.instance.sendMessage(
-      userId: _selectedUserChatId,
+      userId: targetUser['id'] as String,
       userName: targetUser['name'] as String,
       text: text,
       isFromAdmin: true,
@@ -336,20 +332,20 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                           icon: Icons.dashboard_rounded,
                           label: 'Ringkasan & Metrik',
                           isSelected: _selectedTabIndex == 0,
-                          onTap: () => setState(() => _selectedTabIndex = 0),
+                          onTap: () => _selectTab(0),
                         ),
                         _SidebarItem(
                           icon: Icons.receipt_long_rounded,
                           label: 'Monitoring Transaksi',
                           isSelected: _selectedTabIndex == 1,
-                          onTap: () => setState(() => _selectedTabIndex = 1),
+                          onTap: () => _selectTab(1),
                         ),
                         _SidebarItem(
                           icon: Icons.people_alt_rounded,
                           label: 'Manajemen Pengguna',
                           isSelected: _selectedTabIndex == 2,
                           badge: '${users.length}',
-                          onTap: () => setState(() => _selectedTabIndex = 2),
+                          onTap: () => _selectTab(2),
                         ),
                         _SidebarItem(
                           icon: Icons.support_agent_rounded,
@@ -357,14 +353,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                           isSelected: _selectedTabIndex == 3,
                           badge: 'Online',
                           badgeColor: AppColors.success,
-                          onTap: () => setState(() => _selectedTabIndex = 3),
+                          onTap: () => _selectTab(3),
                         ),
                         _SidebarItem(
                           icon: Icons.account_balance_rounded,
                           label: 'Midtrans Sandbox Gateway',
                           isSelected: _selectedTabIndex == 4,
                           badge: '${orders.length}',
-                          onTap: () => setState(() => _selectedTabIndex = 4),
+                          onTap: () => _selectTab(4),
                         ),
                         _SidebarItem(
                           icon: Icons.verified_user_rounded,
@@ -374,7 +370,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                           badgeColor: pendingKyc > 0
                               ? AppColors.gold
                               : AppColors.success,
-                          onTap: () => setState(() => _selectedTabIndex = 5),
+                          onTap: () => _selectTab(5),
                         ),
                       ],
                     );
@@ -1316,13 +1312,23 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               valueListenable: SupportChatService.instance.messagesNotifier,
               builder: (context, allMessages, _) {
                 final users = _mergedUserList;
+                if (users.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'Belum ada percakapan CS masuk dari pengguna.',
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.textSecondary),
+                    ),
+                  );
+                }
                 final activeChatUser = users.firstWhere(
                   (u) => u['id'] == _selectedUserChatId,
                   orElse: () => users.first,
                 );
+                final activeChatUid = activeChatUser['id'] as String;
 
                 final messages = SupportChatService.instance
-                    .getMessagesForUser(_selectedUserChatId);
+                    .getMessagesForUser(activeChatUid);
 
                 return Column(
                   children: [
