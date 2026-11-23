@@ -114,7 +114,12 @@ class _QrisConfirmSheetState extends State<_QrisConfirmSheet> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                Text('Konfirmasi Pembayaran QRIS', style: AppTextStyles.h2),
+                Text(
+                  payload.isFinPayUser
+                      ? 'Konfirmasi Transfer QRIS'
+                      : 'Konfirmasi Pembayaran QRIS',
+                  style: AppTextStyles.h2,
+                ),
                 const SizedBox(height: AppSpacing.md),
                 Container(
                   width: double.infinity,
@@ -129,7 +134,9 @@ class _QrisConfirmSheetState extends State<_QrisConfirmSheet> {
                       Text(payload.merchantName, style: AppTextStyles.h3),
                       const SizedBox(height: 2),
                       Text(
-                        payload.merchantCity,
+                        payload.isFinPayUser
+                            ? 'Penerima Transfer QRIS FinPay (${payload.merchantCity})'
+                            : payload.merchantCity,
                         style: AppTextStyles.bodySmall,
                       ),
                       const SizedBox(height: AppSpacing.xs),
